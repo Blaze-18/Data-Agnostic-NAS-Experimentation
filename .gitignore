@@ -1,0 +1,81 @@
+# ===== Python artifacts =====
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.pyre/
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyd
+*.pyo
+
+# Distribution / packaging
+build/
+dist/
+eggs/
+*.egg
+*.egg-info/
+pip-wheel-metadata/
+
+# ===== Virtual environments =====
+# Common names for virtualenvs
+venv/
+.venv/
+env/
+Env/
+envs/
+envs/**
+venv*/
+*/venv/
+pip-selfcheck.json
+
+# ===== Project data, caches and outputs =====
+# Large datasets, preprocessed outputs, and model checkpoints
+/data/
+/results/
+/tmp/
+/models/
+/pip_cache/
+
+# Processed files and numpy/hdf5 checkpoints
+*.pth
+*.pt
+*.h5
+*.hdf5
+*.npy
+
+# Logs and runtime outputs
+*.log
+debug.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor
+.vscode/
+.idea/
+*.suo
+*.user
+*.swp
+
+# Secrets and environment files
+.env
+*.env
+*.key
+*.pem
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Misc
+*.egg-info
+*.egg-info/
