@@ -33,10 +33,9 @@ pip-selfcheck.json
 
 # ===== Project data, caches and outputs =====
 # Large datasets, preprocessed outputs, and model checkpoints
-/data/
-/results/
+
 /tmp/
-/models/
+
 /pip_cache/
 
 # Processed files and numpy/hdf5 checkpoints

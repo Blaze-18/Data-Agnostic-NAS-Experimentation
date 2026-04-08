@@ -1,0 +1,18 @@
+{
+  "total_files": 15625,
+  "loaded_successfully": 15625,
+  "load_failed": 0,
+  "records_before_validation": 15625,
+  "records_after_validation": 15625,
+  "validation_failures": {},
+  "has_proxy_fields_count": 0,
+  "missing_info": {},
+  "labels_shape": [
+    15625
+  ],
+  "labels_min": 10.288000106811523,
+  "labels_max": 100.0,
+  "labels_mean": 94.12747192382812,
+  "labels_std": 14.95643424987793,
+  "note": "No proxies in chunk files. Placeholder features created. TODO: Compute actual proxies."
+}
