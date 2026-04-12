@@ -1,7 +1,20 @@
 """
 Proxy 2: SynFlow
-Measures gradient flow (synaptic salience) through the network.
-Computes the gradient magnitude of a random forward/backward pass.
+Implements the original SynFlow algorithm from Tanaka et al. (2020):
+  "Pruning neural networks without any data by iteratively conserving synaptic flow"
+
+Key algorithm steps:
+  1. Use all-ones input (data-free, deterministic)
+  2. Linearize the network: store weight signs, set all weights to |w|
+     → prevents gradient cancellation from mixed-sign weights
+  3. Forward pass → loss = output.sum()
+  4. Backward pass
+  5. Score = sum(|grad_w * w|) over all parameters
+  6. Restore original weight signs
+
+The naive approach (random input + cross-entropy) degrades to ρ ≈ 0.18 because
+random signs in both inputs and weights cause massive gradient cancellation,
+making scores architecture-insensitive.
 """
 import os
 import sys
@@ -22,43 +35,60 @@ def synflow_score(model: nn.Module, input_size: Tuple = (1, 3, 32, 32),
     """
     Compute SynFlow score for a model.
     
-    SynFlow measures the sum of absolute element-wise layer-wise gradient-weight products,
-    indicating how much information flows through the network.
-    
+    Computes the SynFlow score using the original data-free algorithm.
+    Uses all-ones input and weight linearization to prevent gradient
+    cancellation, then measures sum(|grad_w * w|) over all parameters.
+
     Args:
         model: PyTorch model
         input_size: Input tensor shape
         device: PyTorch device
-    
+
     Returns:
         SynFlow score (float)
     """
     try:
         if device is None:
             device = torch.device('cpu')
-        
-        # Create random input and target
-        x = torch.randn(input_size, device=device)
-        
-        # Forward pass
-        model.train()
+
+        model.eval()
         model.zero_grad()
-        logits = model(x)
-        
-        # Random labels for backward (to ensure gradient flow)
-        targets = torch.randint(0, 10, (input_size[0],), device=device)
-        loss_fn = nn.CrossEntropyLoss()
-        loss = loss_fn(logits, targets)
-        
-        # Backward pass
+
+        # Step 1: All-ones input — data-free, no randomness
+        x = torch.ones(input_size, device=device)
+
+        # Step 2: Linearize — store signs and make all weights positive.
+        # This is the core trick: without it, positive/negative weight interactions
+        # cause gradient cancellation and the score becomes architecture-insensitive.
+        signs = {}
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                signs[name] = torch.sign(param.data.clone())
+                param.data.abs_()
+
+        # Step 3: Forward pass with linearized (all-positive) weights
+        output = model(x)
+        if isinstance(output, (tuple, list)):
+            output = output[0]  # handle models that return (logits, aux)
+
+        # Step 4: Loss = sum of ALL outputs (no task-specific signal)
+        loss = output.sum()
+
+        # Step 5: Backward pass
         loss.backward()
-        
-        # Compute SynFlow: sum of |grad * weight| for all parameters
+
+        # Step 6: Score = sum(|grad * weight|) — synaptic salience
         synflow_val = 0.0
-        for param in model.parameters():
+        for name, param in model.named_parameters():
             if param.grad is not None:
-                synflow_val += (param.grad * param).abs().sum().item()
-        
+                synflow_val += (param.grad * param.data).abs().sum().item()
+
+        # Step 7: Restore original weight signs
+        with torch.no_grad():
+            for name, param in model.named_parameters():
+                if name in signs:
+                    param.data.mul_(signs[name])
+
         return float(synflow_val)
     
     except Exception as e:
@@ -133,7 +163,7 @@ def test_synflow(subset_size: int = 256, arch_data_dir: str = None,
     if arch_data_dir is None:
         arch_data_dir = 'data/chunks_clean/arch2infos'
     if output_dir is None:
-        output_dir = 'results/proxy_scores'
+        output_dir = 'results/raw_proxy_scores'
     
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)

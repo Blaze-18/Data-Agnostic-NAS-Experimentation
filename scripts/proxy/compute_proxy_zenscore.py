@@ -23,17 +23,22 @@ def zenscore(model: nn.Module, num_samples: int = 4, input_size: Tuple = (4, 3, 
     Compute Zen-Score (activation covariance trace under perturbations).
     
     Zen-Score measures the diversity of activations by computing variance
-    across multiple random input samples. Higher variance indicates the
-    network can represent more diverse patterns.
+    across multiple random input samples and multiple Conv2d layers.
+    
+    Implementation: Multi-layer, multi-sample strategy
+    - Hooks ALL Conv2d layers in the network
+    - Runs multiple forward passes with different random inputs
+    - Computes covariance trace for each (layer, sample) pair
+    - Aggregates via mean (reduces noise from any single layer/sample)
     
     Args:
         model: PyTorch model
-        num_samples: Number of random input samples
+        num_samples: Number of random input samples (4 recommended)
         input_size: Input tensor shape (batch, channels, height, width)
         device: PyTorch device
     
     Returns:
-        Zen-Score (float)
+        Zen-Score (float) - mean covariance trace across all layers and samples
     """
     try:
         if device is None:
@@ -41,7 +46,7 @@ def zenscore(model: nn.Module, num_samples: int = 4, input_size: Tuple = (4, 3, 
         
         model.eval()
         
-        # Find last conv layer for hooking
+        # Find ALL Conv2d layers
         conv_modules = []
         for name, module in model.named_modules():
             if isinstance(module, nn.Conv2d):
@@ -50,34 +55,47 @@ def zenscore(model: nn.Module, num_samples: int = 4, input_size: Tuple = (4, 3, 
         if len(conv_modules) == 0:
             return 0.0
         
-        target_layer = conv_modules[-1]
-        
-        scores = []
+        all_layer_scores = []
         
         # Run multiple forward passes with different random inputs
         with torch.no_grad():
             for sample_idx in range(num_samples):
-                activations_list = []
+                # Dictionary to collect activations per layer for this sample
+                layer_activations = {i: [] for i in range(len(conv_modules))}
                 
-                def hook_fn(module, input, output):
-                    if isinstance(output, torch.Tensor):
-                        if output.dim() > 2:
-                            output_flat = output.view(output.size(0), output.size(1), -1).mean(dim=2)
-                        else:
-                            output_flat = output
-                        activations_list.append(output_flat.detach().cpu())
+                # Create hook functions for each layer
+                def create_hook(layer_idx):
+                    def hook_fn(module, input, output):
+                        if isinstance(output, torch.Tensor):
+                            if output.dim() > 2:
+                                output_flat = output.view(output.size(0), output.size(1), -1).mean(dim=2)
+                            else:
+                                output_flat = output
+                            layer_activations[layer_idx].append(output_flat.detach().cpu())
+                    return hook_fn
                 
-                # Register hook
-                hook = target_layer.register_forward_hook(hook_fn)
+                # Register hooks on all Conv2d layers
+                hooks = []
+                for layer_idx, conv_module in enumerate(conv_modules):
+                    hook = conv_module.register_forward_hook(create_hook(layer_idx))
+                    hooks.append(hook)
                 
-                # Forward pass
+                # Forward pass with random input
                 x = torch.randn(input_size, device=device)
                 _ = model(x)
                 
-                hook.remove()
+                # Remove all hooks
+                for hook in hooks:
+                    hook.remove()
                 
-                if len(activations_list) > 0:
-                    acts = activations_list[0].float()
+                # Compute covariance trace for each layer in this sample
+                sample_layer_scores = []
+                
+                for layer_idx in range(len(conv_modules)):
+                    if len(layer_activations[layer_idx]) == 0:
+                        continue
+                    
+                    acts = layer_activations[layer_idx][0].float()
                     
                     if acts.size(1) == 0:
                         continue
@@ -94,13 +112,17 @@ def zenscore(model: nn.Module, num_samples: int = 4, input_size: Tuple = (4, 3, 
                     
                     # Trace of covariance
                     trace_val = torch.diagonal(cov).sum().item()
-                    scores.append(max(trace_val, 0.0))
+                    sample_layer_scores.append(max(trace_val, 0.0))
+                
+                # Add this sample's layer scores to the overall collection
+                all_layer_scores.extend(sample_layer_scores)
         
-        if len(scores) == 0:
+        if len(all_layer_scores) == 0:
             return 0.0
         
-        # Zen-Score is mean across samples
-        return float(np.mean(scores))
+        # Zen-Score is mean across all (layer, sample) pairs
+        # This provides a robust estimate averaging out noise
+        return float(np.mean(all_layer_scores))
     
     except Exception as e:
         # Fallback

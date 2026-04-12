@@ -22,9 +22,14 @@ def naswot_score(model: nn.Module, input_size: Tuple = (8, 3, 32, 32),
     """
     Compute NASWOT score (activation diversity via trace of covariance).
     
-    NASWOT measures the diversity of activations in the penultimate layer
+    NASWOT measures the diversity of activations across all Conv2d layers
     using random inputs, indicating how well the network can represent
     different input patterns.
+    
+    Implementation: Multi-layer hooking strategy
+    - Hooks ALL Conv2d layers in the network
+    - Computes covariance trace for each layer
+    - Aggregates via mean of traces (earlier layers have more diversity)
     
     Args:
         model: PyTorch model
@@ -32,72 +37,90 @@ def naswot_score(model: nn.Module, input_size: Tuple = (8, 3, 32, 32),
         device: PyTorch device
     
     Returns:
-        NASWOT score (float)
+        NASWOT score (float) - mean covariance trace across all layers
     """
     try:
         if device is None:
             device = torch.device('cpu')
         
-        # Collect activations
-        activations_list = []
-        
-        def hook_fn(module, input, output):
-            if isinstance(output, torch.Tensor):
-                # Detach and move to CPU for computation
-                if output.dim() > 2:
-                    # Flatten spatial: (batch, channels, h, w) -> (batch, channels)
-                    output_flat = output.view(output.size(0), output.size(1), -1).mean(dim=2)
-                else:
-                    output_flat = output
-                activations_list.append(output_flat.detach().cpu())
-        
         model.eval()
         
-        # Find multiple layers to hook (last Conv2d usually has meaningful activations)
+        # Find ALL Conv2d layers
         conv_modules = []
+        layer_names = []
         for name, module in model.named_modules():
             if isinstance(module, nn.Conv2d):
                 conv_modules.append(module)
+                layer_names.append(name)
         
         if len(conv_modules) == 0:
             return 0.0
         
-        # Use last conv layer
-        target_layer = conv_modules[-1]
+        # Dictionary to collect activations per layer
+        layer_activations = {i: [] for i in range(len(conv_modules))}
         
-        # Register hook
-        hook = target_layer.register_forward_hook(hook_fn)
+        # Create hook functions for each layer
+        def create_hook(layer_idx):
+            def hook_fn(module, input, output):
+                if isinstance(output, torch.Tensor):
+                    # Detach and move to CPU for computation
+                    if output.dim() > 2:
+                        # Flatten spatial: (batch, channels, h, w) -> (batch, channels)
+                        output_flat = output.view(output.size(0), output.size(1), -1).mean(dim=2)
+                    else:
+                        output_flat = output
+                    layer_activations[layer_idx].append(output_flat.detach().cpu())
+            return hook_fn
         
-        # Forward pass
+        # Register hooks on all Conv2d layers
+        hooks = []
+        for layer_idx, conv_module in enumerate(conv_modules):
+            hook = conv_module.register_forward_hook(create_hook(layer_idx))
+            hooks.append(hook)
+        
+        # Forward pass with random input
         with torch.no_grad():
             x = torch.randn(input_size, device=device)
             _ = model(x)
         
-        hook.remove()
+        # Remove all hooks
+        for hook in hooks:
+            hook.remove()
         
-        if len(activations_list) == 0:
+        # Compute covariance trace for each layer and aggregate
+        layer_scores = []
+        
+        for layer_idx in range(len(conv_modules)):
+            if len(layer_activations[layer_idx]) == 0:
+                continue
+            
+            acts = layer_activations[layer_idx][0].float()  # (batch, channels)
+            
+            if acts.size(1) == 0:  # No channels
+                continue
+            
+            # Center activations
+            acts_mean = acts.mean(dim=0, keepdim=True)
+            acts_centered = acts - acts_mean
+            
+            # Compute covariance: C = (1/batch) * X^T @ X
+            if acts_centered.size(0) > 1:
+                cov = (acts_centered.t() @ acts_centered) / acts.size(0)
+            else:
+                cov = acts_centered.t() @ acts_centered
+            
+            # NASWOT score is the trace of covariance (sum of diagonal)
+            trace_val = torch.diagonal(cov).sum().item()
+            layer_scores.append(max(trace_val, 0.0))
+        
+        if len(layer_scores) == 0:
             return 0.0
         
-        # Get activations from hook
-        acts = activations_list[0].float()  # (batch, channels)
+        # Final score: mean of all layer traces
+        # Earlier layers typically have more diversity, outlier suppression via mean
+        final_score = float(np.mean(layer_scores))
         
-        if acts.size(1) == 0:  # No channels
-            return 0.0
-        
-        # Center activations
-        acts_mean = acts.mean(dim=0, keepdim=True)
-        acts_centered = acts - acts_mean
-        
-        # Compute covariance: C = (1/batch) * X^T @ X
-        if acts_centered.size(0) > 1:
-            cov = (acts_centered.t() @ acts_centered) / acts.size(0)
-        else:
-            cov = acts_centered.t() @ acts_centered
-        
-        # NASWOT score is the trace of covariance (sum of diagonal)
-        score = torch.diagonal(cov).sum().item()
-        
-        return float(max(score, 0.0))  # Ensure non-negative
+        return final_score
     
     except Exception as e:
         # Fallback: return based on parameter count

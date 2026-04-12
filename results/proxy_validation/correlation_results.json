@@ -1,0 +1,74 @@
+{
+  "synflow_raw": {
+    "proxy_name": "synflow_raw",
+    "count": 15625,
+    "spearman_rho": 0.16695492565054568,
+    "spearman_pvalue": 4.7472190502424453e-98,
+    "kendall_tau": 0.11649870611968861,
+    "kendall_pvalue": 1.4048275103572337e-105,
+    "interpretation": "Weak"
+  },
+  "naswot_raw": {
+    "proxy_name": "naswot_raw",
+    "count": 15625,
+    "spearman_rho": -0.5152220679223796,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": -0.36013286671384276,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Moderate"
+  },
+  "zenscore_raw": {
+    "proxy_name": "zenscore_raw",
+    "count": 15625,
+    "spearman_rho": -0.5537111535882834,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": -0.3895303947968819,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Moderate"
+  },
+  "param_count_raw": {
+    "proxy_name": "param_count_raw",
+    "count": 15625,
+    "spearman_rho": 0.7492601838030765,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.5742672004225173,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Strong"
+  },
+  "synflow_transformed": {
+    "proxy_name": "synflow_transformed",
+    "count": 15625,
+    "spearman_rho": 0.16695492565054568,
+    "spearman_pvalue": 4.7472190502424453e-98,
+    "kendall_tau": 0.11649870611968861,
+    "kendall_pvalue": 1.4048275103572337e-105,
+    "interpretation": "Weak"
+  },
+  "naswot_transformed": {
+    "proxy_name": "naswot_transformed",
+    "count": 15625,
+    "spearman_rho": 0.5152220679223796,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.36013286671384276,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Moderate"
+  },
+  "zenscore_transformed": {
+    "proxy_name": "zenscore_transformed",
+    "count": 15625,
+    "spearman_rho": 0.5537111535882834,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.3895303947968819,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Moderate"
+  },
+  "param_count_transformed": {
+    "proxy_name": "param_count_transformed",
+    "count": 15625,
+    "spearman_rho": 0.7492601838030765,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.5742672004225173,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Strong"
+  }
+}
