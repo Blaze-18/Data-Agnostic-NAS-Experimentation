@@ -6,13 +6,13 @@ Implements the original SynFlow algorithm from Tanaka et al. (2020):
 Key algorithm steps:
   1. Use all-ones input (data-free, deterministic)
   2. Linearize the network: store weight signs, set all weights to |w|
-     → prevents gradient cancellation from mixed-sign weights
-  3. Forward pass → loss = output.sum()
+     -> prevents gradient cancellation from mixed-sign weights
+  3. Forward pass -> loss = output.sum()
   4. Backward pass
   5. Score = sum(|grad_w * w|) over all parameters
   6. Restore original weight signs
 
-The naive approach (random input + cross-entropy) degrades to ρ ≈ 0.18 because
+The naive approach (random input + cross-entropy) degrades to rho ~0.17 because
 random signs in both inputs and weights cause massive gradient cancellation,
 making scores architecture-insensitive.
 """
@@ -33,11 +33,8 @@ from proxy_utils import build_nas201_model, get_device
 def synflow_score(model: nn.Module, input_size: Tuple = (1, 3, 32, 32), 
                   device: torch.device = None) -> float:
     """
-    Compute SynFlow score for a model.
-    
-    Computes the SynFlow score using the original data-free algorithm.
-    Uses all-ones input and weight linearization to prevent gradient
-    cancellation, then measures sum(|grad_w * w|) over all parameters.
+    Compute SynFlow score using the original data-free algorithm (Tanaka et al. 2020).
+    Uses all-ones input and weight linearization to prevent gradient cancellation.
 
     Args:
         model: PyTorch model
@@ -54,12 +51,12 @@ def synflow_score(model: nn.Module, input_size: Tuple = (1, 3, 32, 32),
         model.eval()
         model.zero_grad()
 
-        # Step 1: All-ones input — data-free, no randomness
+        # Step 1: All-ones input — data-free, deterministic
         x = torch.ones(input_size, device=device)
 
         # Step 2: Linearize — store signs and make all weights positive.
-        # This is the core trick: without it, positive/negative weight interactions
-        # cause gradient cancellation and the score becomes architecture-insensitive.
+        # Without this, positive/negative weight interactions cause gradient
+        # cancellation and the score becomes architecture-insensitive.
         signs = {}
         for name, param in model.named_parameters():
             if param.requires_grad:
@@ -90,7 +87,7 @@ def synflow_score(model: nn.Module, input_size: Tuple = (1, 3, 32, 32),
                     param.data.mul_(signs[name])
 
         return float(synflow_val)
-    
+
     except Exception as e:
         print(f"  ⚠ Error computing SynFlow: {e}")
         return 0.0

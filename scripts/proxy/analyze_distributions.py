@@ -153,119 +153,93 @@ def analyze_distributions(output_dir: str = 'results/proxy_distribution'):
         json.dump(all_stats, f, indent=2)
     print(f"  ✓ Statistics saved to: {stats_file}")
     
-    # ===== CREATE COMPREHENSIVE VISUALIZATION =====
-    
-    # Determine layout based on available data
-    num_raw = len(raw_data)
-    num_transformed = len(transformed_data)
-    has_transformed = num_transformed > 0
-    
-    if has_transformed:
-        # 4 rows: histograms (raw), KDE (raw), histograms (transformed), KDE (transformed)
-        # Plus 2 additional rows for box plots
-        fig, axes = plt.subplots(6, 4, figsize=(18, 16))
-        fig.suptitle('Proxy Score Distributions: Raw vs. Transformed', fontsize=16, fontweight='bold')
-    else:
-        # 3 rows: histograms, KDE, box plots
-        fig, axes = plt.subplots(3, 4, figsize=(18, 12))
-        fig.suptitle('Proxy Score Distributions (Raw Only)', fontsize=16, fontweight='bold')
-    
+    # ===== CREATE VISUALIZATIONS — split into two files =====
+
     col_idx = {'synflow': 0, 'naswot': 1, 'zenscore': 2, 'param_count': 3}
-    
-    # ===== ROW 1: RAW HISTOGRAMS =====
-    for proxy_name, scores in raw_data.items():
-        ax = axes[0, col_idx[proxy_name]]
-        ax.hist(scores, bins=100, color='steelblue', alpha=0.7, edgecolor='black')
-        ax.set_title(f'{proxy_name.upper()} - Raw Histogram', fontweight='bold')
-        ax.set_ylabel('Frequency')
-        ax.set_yscale('log')
-        ax.grid(True, alpha=0.3)
-    
-    # ===== ROW 2: RAW KDE =====
-    for proxy_name, scores in raw_data.items():
-        ax = axes[1, col_idx[proxy_name]]
-        valid_scores = scores[np.isfinite(scores)]
-        ax.hist(valid_scores, bins=100, density=True, alpha=0.5, color='steelblue', label='Histogram')
-        
-        # KDE
-        from scipy.stats import gaussian_kde
-        try:
-            kde = gaussian_kde(valid_scores)
-            x_range = np.linspace(valid_scores.min(), valid_scores.max(), 200)
-            ax.plot(x_range, kde(x_range), 'r-', linewidth=2, label='KDE')
-        except:
-            pass
-        
-        ax.set_title(f'{proxy_name.upper()} - Raw KDE', fontweight='bold')
-        ax.set_ylabel('Density')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-    
-    # ===== ROW 3 & 4: TRANSFORMED (if available) =====
-    if has_transformed:
-        # ROW 3: TRANSFORMED HISTOGRAMS
-        for proxy_name, scores in transformed_data.items():
-            ax = axes[2, col_idx[proxy_name]]
-            ax.hist(scores, bins=100, color='darkgreen', alpha=0.7, edgecolor='black')
-            ax.set_title(f'{proxy_name.upper()} - Transformed Histogram', fontweight='bold')
+
+    # --- IMAGE 1: RAW distributions (histogram + KDE + box plot) ---
+    if raw_data:
+        fig, axes = plt.subplots(3, 4, figsize=(18, 10))
+        fig.suptitle('Proxy Score Distributions — RAW', fontsize=15, fontweight='bold')
+
+        for proxy_name, scores in raw_data.items():
+            ci = col_idx[proxy_name]
+            valid = scores[np.isfinite(scores)]
+
+            # Row 0: histogram (log-scale y)
+            ax = axes[0, ci]
+            ax.hist(valid, bins=100, color='steelblue', alpha=0.75, edgecolor='none')
+            ax.set_title(f'{proxy_name.upper()}', fontweight='bold')
             ax.set_ylabel('Frequency')
+            ax.set_yscale('log')
             ax.grid(True, alpha=0.3)
-        
-        # ROW 4: TRANSFORMED KDE
-        for proxy_name, scores in transformed_data.items():
-            ax = axes[3, col_idx[proxy_name]]
-            valid_scores = scores[np.isfinite(scores)]
-            ax.hist(valid_scores, bins=100, density=True, alpha=0.5, color='darkgreen', label='Histogram')
-            
+
+            # Row 1: KDE
+            ax = axes[1, ci]
+            ax.hist(valid, bins=100, density=True, alpha=0.45, color='steelblue', label='Histogram')
             try:
                 from scipy.stats import gaussian_kde
-                kde = gaussian_kde(valid_scores)
-                x_range = np.linspace(valid_scores.min(), valid_scores.max(), 200)
+                kde = gaussian_kde(valid)
+                x_range = np.linspace(valid.min(), valid.max(), 300)
                 ax.plot(x_range, kde(x_range), 'r-', linewidth=2, label='KDE')
-            except:
+            except Exception:
                 pass
-            
-            ax.set_title(f'{proxy_name.upper()} - Transformed KDE', fontweight='bold')
             ax.set_ylabel('Density')
-            ax.legend()
+            ax.legend(fontsize=8)
             ax.grid(True, alpha=0.3)
-        
-        # ROW 5: RAW BOX PLOTS
-        for proxy_name in col_idx.keys():
-            ax = axes[4, col_idx[proxy_name]]
-            if proxy_name in raw_data:
-                ax.boxplot(raw_data[proxy_name], vert=True)
-                ax.set_title(f'{proxy_name.upper()} - Raw Box Plot', fontweight='bold')
-                ax.set_ylabel('Score')
-                ax.grid(True, alpha=0.3, axis='y')
-        
-        # ROW 6: TRANSFORMED BOX PLOTS
-        for proxy_name in col_idx.keys():
-            ax = axes[5, col_idx[proxy_name]]
-            if proxy_name in transformed_data:
-                ax.boxplot(transformed_data[proxy_name], vert=True)
-                ax.set_title(f'{proxy_name.upper()} - Transformed Box Plot', fontweight='bold')
-                ax.set_ylabel('Score')
-                ax.grid(True, alpha=0.3, axis='y')
-    
-    else:
-        # ROW 3: BOX PLOTS (only raw)
-        for proxy_name in col_idx.keys():
-            ax = axes[2, col_idx[proxy_name]]
-            if proxy_name in raw_data:
-                ax.boxplot(raw_data[proxy_name], vert=True)
-                ax.set_title(f'{proxy_name.upper()} - Box Plot', fontweight='bold')
-                ax.set_ylabel('Score')
-                ax.grid(True, alpha=0.3, axis='y')
-    
-    plt.tight_layout()
-    
-    # Save figure
-    plot_file = os.path.join(output_dir, 'distribution_plots.png')
-    plt.savefig(plot_file, dpi=150, bbox_inches='tight')
-    print(f"  ✓ Plots saved to: {plot_file}")
-    
-    plt.close()
+
+            # Row 2: box plot
+            ax = axes[2, ci]
+            ax.boxplot(valid, vert=True, patch_artist=True,
+                       boxprops=dict(facecolor='steelblue', alpha=0.5))
+            ax.set_ylabel('Score')
+            ax.grid(True, alpha=0.3, axis='y')
+
+        plt.tight_layout()
+        raw_plot_file = os.path.join(output_dir, 'distribution_plots_raw.png')
+        plt.savefig(raw_plot_file, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"  ✓ Raw distribution plots saved to: {raw_plot_file}")
+
+    # --- IMAGE 2: TRANSFORMED distributions (histogram + KDE + box plot) ---
+    if transformed_data:
+        fig, axes = plt.subplots(3, 4, figsize=(18, 10))
+        fig.suptitle('Proxy Score Distributions — TRANSFORMED (log)', fontsize=15, fontweight='bold')
+
+        for proxy_name, scores in transformed_data.items():
+            ci = col_idx[proxy_name]
+            valid = scores[np.isfinite(scores)]
+
+            ax = axes[0, ci]
+            ax.hist(valid, bins=100, color='darkgreen', alpha=0.75, edgecolor='none')
+            ax.set_title(f'{proxy_name.upper()}', fontweight='bold')
+            ax.set_ylabel('Frequency')
+            ax.grid(True, alpha=0.3)
+
+            ax = axes[1, ci]
+            ax.hist(valid, bins=100, density=True, alpha=0.45, color='darkgreen', label='Histogram')
+            try:
+                from scipy.stats import gaussian_kde
+                kde = gaussian_kde(valid)
+                x_range = np.linspace(valid.min(), valid.max(), 300)
+                ax.plot(x_range, kde(x_range), 'r-', linewidth=2, label='KDE')
+            except Exception:
+                pass
+            ax.set_ylabel('Density')
+            ax.legend(fontsize=8)
+            ax.grid(True, alpha=0.3)
+
+            ax = axes[2, ci]
+            ax.boxplot(valid, vert=True, patch_artist=True,
+                       boxprops=dict(facecolor='darkgreen', alpha=0.5))
+            ax.set_ylabel('Score')
+            ax.grid(True, alpha=0.3, axis='y')
+
+        plt.tight_layout()
+        trans_plot_file = os.path.join(output_dir, 'distribution_plots_transformed.png')
+        plt.savefig(trans_plot_file, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"  ✓ Transformed distribution plots saved to: {trans_plot_file}")
     
     # ===== PRINT SUMMARY TABLE =====
     print("\n" + "="*80)

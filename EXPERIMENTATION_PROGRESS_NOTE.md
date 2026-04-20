@@ -1,266 +1,171 @@
-# Zero-Cost Proxy Experimentation - Progress & Optimization Notes
+﻿# Zero-Cost Proxy Experimentation - Progress & Analysis Notes
 
-**Date**: April 12, 2026  
-**Phase**: Proxy Computation Complete | Analysis in Progress  
-**Status**: Ready for Bias-Disentanglement Phase
-
----
-
-## 1. Current Progress Summary
-
-### ✅ Completed Deliverables
-- **Parameter Count Proxy**: 15,625 scores computed (100% coverage) ✓
-- **SynFlow Proxy**: 15,625 scores computed (100% coverage) ✓
-- **NASWOT Proxy**: ~4,000 scores computed (26% coverage) ✓
-- **Zen-Score Proxy**: ~4,761 scores computed (31% coverage) ✓
-- **Results Storage**: All files saved to `results/proxy_scores/` with proper naming
-- **File Organization**: Test vs. full dataset naming convention implemented
-
-### 📊 Result Distribution Analysis
-
-**Parameter Count & SynFlow**: 
-- Full coverage (15,625 architectures)
-- Parameter Count range: [634, 48,794] params
-- SynFlow range: [0.099, 212.889]
-- No zeros, continuous distribution ✓
-
-**NASWOT & Zen-Score**:
-- Partial coverage (~26-31% of 15,625)
-- Majority of values: 0.0 or near-zero (<1e-10)
-- Non-zero values: ~0.003 to ~0.008 (small magnitude)
-- Pattern matches validation subset predictions ✓
+**Date**: April 21, 2026  
+**Phase**: Steps 1â€“4 Complete | Ready for Bias Disentanglement (Step 5)  
+**Status**: All proxies validated on full NAS-Bench-201 (15,625 architectures, CIFAR-10)
 
 ---
 
-## 2. Root Cause Analysis: Why NASWOT/Zen-Score Are Mostly Zeros
+## 0. Proposed Framework Overview 
 
-### Identified Cause #1: NAS-Bench-201 Search Space Structure
-- **Skip-Connection Heavy Cells**: ~70% of architectures contain multiple skip connections
-- **Example Architecture String**: `|skip_connect|+|skip_connect|+|nor_conv_1x1|` 
-- **Impact**: Skip connections bypass intermediate layers, reducing activation diversity
-- **Consequence**: Covariance matrix has minimal signal
+**Title**: Bias-Disentangled Structural Proxy Embedding Framework for Data-Agnostic Neural Architecture Ranking
 
-### Identified Cause #2: Single-Layer Hooking Strategy
-- **Current Implementation**: Hooks only the **last Conv2d layer**
-- **Problem**: Last layer in skip-heavy architectures may have:
-  - Limited batch size (skip connections reduce feature flow)
-  - Minimal activation variance across samples
-  - Few intermediate channels to compute covariance over
-- **Validation Evidence**: Tested on 256-sample subset → got 66/256 = 26% success (matched full run)
+**Core objective**: Estimate architecture performance using only structural zero-cost proxy signals â€” no dataset access during inference. The surrogate is trained offline on NAS benchmark ground-truth accuracies and then operates fully data-agnostically during search.
 
-### Identified Cause #3: Activation Magnitude Compression
-- **Gradient Flow**: Information from skip connections → activations in final layer are compressed
-- **Covariance Computation**: 
-  - Activation range often < 0.1 (after batch norm in conv layers)
-  - Covariance trace naturally produces tiny values
-  - Example: acts ~ [0.01, 0.02] → Cov diagonal ~ 0.0001 → trace ~ 0.001
-- **Not a Bug**: This is mathematically correct; skip connections legitimately have low activation variance
+### Five-Stage Pipeline
 
-### Verdict: ✅ **BEHAVIOR IS CORRECT, NOT A BUG**
-The zeros/near-zeros accurately reflect that ~70% of NAS-Bench-201 architectures have minimal intermediate activation diversity due to structural dominance of skip connections.
+| Stage | Name | Description |
+|-------|------|-------------|
+| **1** | Structural Proxy Extraction | Compute SynFlow, Zen-Score, NASWOT, Param Count at initialization via single forward/structural pass. No data, labels, or real gradients used. |
+| **2** | Bias Disentanglement | Regress out structural size factors (param count, depth, width) from each proxy via OLS. Residual `ÎµÌƒáµ¢` is the bias-corrected signal. |
+| **3** | Proxy Embedding Construction | Apply PCA + whitening to the debiased proxy matrix â†’ orthogonal embedding `Z = W(PÌƒ âˆ’ Î¼)`. Removes multicollinearity; standardises variance so param count cannot dominate. |
+| **4** | Surrogate Training (Ranking Objective) | Shallow MLP trained on `Z` with a pairwise ranking loss `L_rank = Î£ max(0, âˆ’(yáµ¢âˆ’yâ±¼)(Å·áµ¢âˆ’Å·â±¼))` instead of MSE. Optimises for rank ordering, not point accuracy. |
+| **5** | Data-Agnostic Inference | At search time: extract proxies â†’ apply precomputed bias correction â†’ project via stored PCA â†’ MLP outputs performance score. Zero data dependency. |
 
----
+### Proxies Used
 
-## 3. Optimization Strategies (Ranked by Impact)
+| Proxy | Role | Data-Agnostic |
+|-------|------|---------------|
+| SynFlow | Gradient flow magnitude; detects vanishing-gradient-prone architectures | âœ“ |
+| Zen-Score | Activation expressivity under random perturbations | âœ“ |
+| Param Count | Structural capacity (size/depth/width indicator); **bias covariate** | âœ“ |
+| NASWOT | ReLU activation pattern diversity under random inputs | âœ“ |
 
-### Strategy A: Multi-Layer Hooking (RECOMMENDED) ✅ IMPLEMENTED
-
-**Status**: ✅ Implementation Complete & Tested | **Time**: 2 hours recomputation | **Effort**: Complete | **Impact**: +100% signal gain verified!
-
-**Implementation Done**:
-```python
-# Previous: Hook only last Conv2d
-target_layer = conv_modules[-1]  
-
-# NEW: Hook all Conv2d layers
-conv_modules = [m for name, m in model.named_modules() if isinstance(m, nn.Conv2d)]
-for each layer:
-    hook = layer.register_forward_hook(hook_fn)
-    
-# Aggregate: Compute trace for each layer, take mean
-layer_scores = []
-for each_hooked_layer:
-    trace_val = torch.diagonal(cov).sum()
-    layer_scores.append(trace_val)
-final_score = mean(layer_scores)  # Robust aggregation
-```
-
-**Test Results (256-sample validation)**:
-- **NASWOT**: 26% → **100% coverage** ✅ (ALL 256 have non-zero scores)
-  - Test stats: min=0.000088, max=0.007102, mean=0.000644
-- **Zen-Score**: 31% → **100% coverage** ✅ (ALL 256 have non-zero scores)
-  - Test stats: min=0.000102, max=0.005053, mean=0.000582
-
-**Full Dataset Computation** (15,625 architectures):
-- **NASWOT**: Currently computing... (~50 min elapsed)
-- **Zen-Score**: Currently computing... (~60 min elapsed)
-- Both running in parallel for efficiency
-
-**Why It Works**:
-- Hooks ALL Conv2d layers (not just last), capturing early diversity
-- Early layers: untouched activations with high variance
-- Middle layers: slight compression from skip connections
-- Last layer: heavy skip-connection compression
-- Mean aggregation: robust against layer-specific noise
-- Result: **Every architecture produces a meaningful score**
-
-**Verified Impact** (from 256-sample testing):
-- Coverage: 26% → 100% ✅ (4x improvement)
-- All architectures measurable, even skip-heavy ones
-- Signal quality: Consistent non-zero values across diverse architectures
-- Expected final correlation: 0.85-0.90 (vs 0.80-0.85 with single-layer)
+### Validation Metrics (per thesis Â§5.6)
+- **Primary**: Spearman Ï and Kendall Ï„ rank correlation coefficients
+- **Downstream**: Top-10 selection accuracy (Pareto-optimal candidate retrieval)
+- **Ablation**: Raw ensemble vs. linear surrogate vs. full framework (with/without bias calibration and whitening)
 
 ---
 
-### Improve with Multi-Layer Hooking
-**Pros**:
-- Significant signal boost (26% → 60-70% non-zero)
-- Better feature diversity for MLP
-- 40-50 min additional time is practical
-- Can rerun just NASWOT/Zen-Score
+## 1. Pipeline Completion Status
 
-**Cons**:
-- 40-50 minute recomputation
-- Delays bias-disentanglement phase
-- Not critical (param count + synflow sufficient)
+| Step | Task | Status |
+|------|------|--------|
+| 1 | Proxy computation â€” all 4 proxies, 15,625 architectures | âœ… Complete |
+| 2 | Log transformation with negation correction (NASWOT, Zen-Score) | âœ… Complete |
+| 3 | Distribution analysis | âœ… Complete |
+| 4 | Ranking correlation validation against CIFAR-10 ground truth | âœ… Complete |
+| 5 | Bias disentanglement (regress out param_count) | â³ Next |
 
-**Expected MLP Correlation**: 0.85-0.90 (with improved proxies)
-
-**Recommendation**: **IMPLEMENT** (marginal time cost, significant signal boost)
-
----
-
-## 6. Current Data Quality Assessment
-
-| Metric | Status | Grade |
-|--------|--------|-------|
-| Coverage Completeness | Parameter Count + SynFlow: 100% ✓ | A |
-| Value Distribution | Non-zero: 26-31% of NASWOT/Zen | B+ |
-| Signal Quality | NASWOT/Zen mostly near-zero | B |
-| File Organization | Clean naming scheme ✓ | A |
-| Computation Correctness | Mathematically correct ✓ | A |
-| Readiness for Bias-Disentanglement | Can proceed immediately ✓ | A- |
-
-**Overall**: **Ready to proceed**, but **recommend optimization before MLP training**
+**Implementation notes:**
+- NASWOT and Zen-Score use multi-layer Conv2d hooking â€” all Conv2d layers are hooked and the mean of per-layer covariance traces is used as the score. This achieved 100% coverage vs. 26â€“31% with single-layer hooking in earlier experiments.
+- SynFlow uses the Tanaka et al. 2020 algorithm: all-ones input, weight linearisation (`abs_()`), `loss = output.sum()`, score = `Î£|grad Ã— weight|`.
+- NASWOT and Zen-Score raw scores are negated before log-transform (`-log(x + Îµ)`) because higher activation covariance trace correlates with skip-heavy (low accuracy) architectures â€” the raw correlation is negative.
 
 ---
 
-## 5. Implementation Status & Active Computation
+## 2. Correlation Results (Transformed Proxies vs CIFAR-10 Test Accuracy, Epoch 199)
 
-### ✅ Multi-Layer Hooking Successfully Implemented
+| Proxy | Spearman Ï | Kendall Ï„ | Top-1% Precision | Top-10% Precision | Signal |
+|-------|-----------|-----------|-----------------|-------------------|--------|
+| Param Count | **0.749** | 0.574 | 9.0% | 47.1% | Strong |
+| Zen-Score | **0.554** | 0.390 | 3.2% | 25.4% | Moderate |
+| NASWOT | **0.515** | 0.360 | 1.3% | 24.3% | Moderate |
+| SynFlow | 0.164 | 0.114 | 10.3% | 41.4% | Weak |
 
-**Files Modified**:
-1. `scripts/proxy/compute_proxy_naswot.py` - Multi-layer hooking + mean aggregation
-2. `scripts/proxy/compute_proxy_zenscore.py` - Multi-layer hooking + sample + layer aggregation
-
-**Key Code Changes**:
-- Loop through ALL Conv2d layers (not just last)
-- Register hooks on each layer simultaneously
-- Store activations per layer
-- Compute covariance trace for each layer
-- Aggregate via mean of layer traces
-
-### 📊 Full Dataset Computation Status
-
-**Currently Running**:
-- ✅ **NASWOT Full (15,625 arch)**: 640/15625 (4%) - ETA: ~3-4 hours
-- ✅ **Zen-Score Full (15,625 arch)**: 2040/15625 (13%) - ETA: ~2-3 hours
-
-**Expected Final Results** (based on 256-sample validation):
-- **NASWOT**: 100% coverage with min/max/mean scores
-- **Zen-Score**: 100% coverage with min/max/mean scores
-- No zero values (complete signal recovery)
-
-### Previous Results (For Reference)
-
-**Old Single-Layer Implementation** (saved as comparison):
-- `naswot_test.json` - 26% coverage (66/256)
-- `zenscore_test.json` - 31% coverage (79/256)
-- Most architecture zeros due to skip connections
-
-**New Multi-Layer Implementation** (256-sample validation):
-- `naswot_test.json` (overwritten) - **100% coverage (256/256)** ✅
-- `zenscore_test.json` (overwritten) - **100% coverage (256/256)** ✅
-- All architectures measured, meaningful signal
+All p-values are 0.0 (machine zero) except SynFlow (p = 4.2Ã—10â»â¹â´), confirming statistical significance across all proxies.
 
 ---
 
-## 8. Specific Recommendations for Next Session
+## 3. Key Findings and Analysis
 
-### High Priority (Do Next):
-1. **Implement multi-layer hooking** in `compute_proxy_naswot.py` and `compute_proxy_zenscore.py`
-   - Hook all Conv2d layers, aggregate via mean of traces
-   - Expected: 2-3x signal improvement
-   
-2. **Log intermediate layer statistics** during recomputation
-   - Track which layers contribute most variance
-   - Validate multi-layer approach works as expected
+### 3.1 Param Count is a Bias Covariate, Not a Predictor
 
-### Medium Priority (Consider):
-3. **Add activation magnitude normalization** to standardize scores
-4. **Create comparison visualization** showing old vs. new proxy distributions
+Param Count achieves the strongest correlation (Ï = 0.749) but this is a structural bias: larger networks dominate the top of NAS-Bench-201 rankings purely because they have more capacity. The pairwise heatmap shows its cross-correlation with the other proxies:
 
-### Low Priority (Optional):
-5. **Test gradient-based alternative** (Option B) on small subset
-6. **Document architectural patterns** (which cells benefit most from hooking)
+- Param Count â†” NASWOT: **Ï = 0.59**
+- Param Count â†” Zen-Score: **Ï = 0.62**
 
----
+This means a substantial fraction of NASWOT's and Zen-Score's apparent correlation with accuracy is actually inherited from their shared correlation with network size. Param Count is designated a **bias covariate** â€” it will be regressed out in Step 5, not used as a predictor in the surrogate model.
 
-## 9. Technical Debt & Known Limitations
+The raw and transformed distributions of Param Count show a **discrete multi-modal structure** (3â€“4 peaks in the KDE). This is not a smooth continuous variable â€” NAS-Bench-201 architectures fall into discrete capacity classes. Standard OLS regression treats it as continuous, which is an approximation. Step 5 will compute both OLS residuals and partial Spearman Ï; if they disagree, partial Spearman Ï is the credible result.
 
-### Current Limitations:
-1. **Single Random Input Sample**: Only one forward pass per architecture
-   - Could improve by averaging over 5 samples
-   - Cost: 5x slower but more stable
+### 3.2 NASWOT and Zen-Score: Redundancy Undecided
 
-2. **Fixed Batch Size**: Uses (8, 3, 32, 32) for all architectures
-   - Some models might need different batch sizes
-   - Risk: Very wide/deep models might overflow
+The expected prediction was that NASWOT â†” Zen-Score inter-proxy Ï would exceed 0.90, since both measure `trace(Cov(activations))` across Conv2d layers. The pairwise heatmap shows **Ï = 0.62** â€” moderate, not near-identical. The likely explanation is Zen-Score's multi-sample averaging (4 random input draws) vs NASWOT's fixed single batch; the stochasticity decorrelates scores at the architecture level even when marginal distributions look similar.
 
-3. **No Numerical Stability Checks**: Small activations near float32 precision limits
-   - Could add log-space computation for very small numbers
+However, Ï = 0.62 in a small feature set is still substantial shared variance. **Neither proxy is excluded at this stage.** The Step 5 partial Ï measurements â€” after param_count is regressed out â€” are required before any inclusion decision is made. If one proxy's partial Ï collapses and the other's does not, the weaker one is dropped. If both partial Ï values remain above the threshold, both are retained as predictors with documented evidence of partial independence.
 
-### Mitigation Recommended:
-- Add try-catch with fallback to parameter count
-- Log any numerical issues for debugging
+### 3.3 SynFlow: Weak Signal with Degenerate Distribution
+
+SynFlow has Ï = 0.164 globally. The top-1% precision of 10.3% is 10Ã— better than random, but this is a coincidental property of its heavy right tail, not a reliable signal â€” the rank-rank scatter shows near-uniform horizontal noise across the full rank range.
+
+The transformed distribution is degenerate: over 50% of architectures cluster at log(SynFlow) â‰ˆ 0â€“0.3 (these are skip/none-dominated architectures where SynFlow â‰ˆ 1.0, and log(1.0) = 0). The remaining scores form a disconnected tail reaching to 61. Q25=0.14, median=0.30, mean=6.9, max=61.3.
+
+SynFlow is being carried through bias disentanglement solely to produce a formal measurement for the thesis ablation. The expectation â€” based on Ï=0.164 and the degenerate distribution â€” is exclusion. It is not a viable candidate for the surrogate predictor.
+
+Separately: NASWOT and Zen-Score fail at top-1% precision (1.3% and 3.2%) not because of a proxy failure but because the top 10% of NAS-Bench-201 architectures compress into a 1.5% accuracy window (92.9â€“94.4%). No proxy can meaningfully rank within 1.5% accuracy differences. This is a benchmark ceiling characteristic.
+
+### 3.5 Degenerate Architecture Cluster
+
+The accuracy distribution shows ~300 architectures near 10% accuracy. These are skip/none-dominated cells that fail to learn entirely. Every proxy correctly pushes these to the bottom of its ranking, which inflates all Ï values relative to what they would be on the competitive subset alone (75â€“94%). Bias disentanglement will inherit this inflation; the partial Ï values post-debiasing are the more honest signal strength estimates.
 
 ---
 
-## 10. Final Summary & Decision Point
+## 4. Pairwise Inter-Proxy Correlation Summary (Heatmap)
 
-**Implementation Complete** ✅
+|  | SynFlow | NASWOT | Zen-Score | Param Count | GT Accuracy |
+|--|---------|--------|-----------|-------------|-------------|
+| **SynFlow** | 1.00 | 0.13 | 0.13 | 0.23 | 0.16 |
+| **NASWOT** | 0.13 | 1.00 | 0.62 | 0.59 | 0.52 |
+| **Zen-Score** | 0.13 | 0.62 | 1.00 | 0.62 | 0.55 |
+| **Param Count** | 0.23 | 0.59 | 0.62 | 1.00 | 0.75 |
+| **GT Accuracy** | 0.16 | 0.52 | 0.55 | 0.75 | 1.00 |
 
-### What Was Done:
-1. ✅ Analyzed root cause of zero-heavy NASWOT/Zen-Score results
-2. ✅ Designed multi-layer hooking strategy (Strategy A)
-3. ✅ Implemented multi-layer hooking in both `compute_proxy_naswot.py` and `compute_proxy_zenscore.py`
-4. ✅ Validated with 256-sample test: **100% coverage confirmed** (vs 26-31% before)
-5. ✅ Launched full dataset recomputation for both proxies (running in parallel)
+**SynFlow is near-orthogonal to all other proxies** (Ï â‰¤ 0.23). This is the only positive property it retains â€” if it survives bias disentanglement, it contributes a genuinely independent axis of information.
 
-### Next Steps:
-1. **Wait for Full Computation** (~3-4 hours total):
-   - NASWOT: ~3-4 hours remaining
-   - Zen-Score: ~2-3 hours remaining
-   - Both running in background terminals
+---
 
-2. **Once Complete** (No further action needed):
-   - Check results files in `results/proxy_scores/`
-   - Results automatically overwrite old `naswot_full.json` and `zenscore_full.json`
-   - Statistics automatically appended
+## 5. Next Step: Bias Disentanglement (Step 5)
 
-3. **Proceed with Next Phase** when ready:
-   - Bias-disentanglement (remove param count effect)
-   - PCA + whitening
-   - Upload to Colab for MLP training
+**Objective**: Isolate the portion of each proxy's correlation with accuracy that is independent of network size (param_count).
 
-### Improvement Summary:
-| Metric | Before | After | Change |
-|--------|--------|-------|--------|
-| NASWOT Coverage | 26% | 100% | +4x ✅ |
-| Zen-Score Coverage | 31% | 100% | +3.2x ✅ |
-| Signal Quality | Mostly zeros | Consistent non-zero | Massively improved ✅ |
-| Computation Time | 5-10 min | 3-4 hours | Trade: quality for time |
-| Final Model Correlation | 0.80-0.85 | 0.85-0.90 | +5-10% expected |
+**Method**: For each proxy P âˆˆ {SynFlow, NASWOT, Zen-Score}:
+1. OLS regression: `P_transformed ~ Î²â‚€ + Î²â‚ Ã— param_count_transformed` â†’ save residuals
+2. Compute partial Spearman Ï: `spearmanr(P_residuals, GT_accuracy_residuals)` where GT residuals also have param_count regressed out
+3. Compare OLS partial Ï vs direct partial Spearman Ï â€” if they diverge, report partial Spearman as primary (due to param_count's discrete distribution)
 
-**Status**: Implementation and validation complete. Full computation in progress. Ready for next phase.
+**Decision criteria post-debiasing:**
+- Partial Ï â‰¥ 0.30 â†’ keep as surrogate predictor
+- Partial Ï 0.10â€“0.30 â†’ keep with documentation of weakness
+- Partial Ï < 0.10 â†’ exclude with documented evidence
 
+**Expected outcomes:**
+- NASWOT and Zen-Score: partial Ï will drop but likely remain above 0.30 (their cross-correlation with param_count is 0.59â€“0.62, not 0.90+)
+- SynFlow: partial Ï likely drops below 0.10 (cross-correlation with param_count is only 0.23, but its global Ï is already only 0.164)
+- Param Count: not evaluated â€” bias covariate only
+
+**Output files (Step 5):**
+- `results/debiased_proxy/{proxy}_debiased.json` â€” OLS residuals
+- `results/debiased_proxy/partial_correlations.json` â€” partial Ï, p-values, decision per proxy
+
+---
+
+## 6. Current Focus
+
+**The only task that matters right now is implementing and running bias disentanglement (Step 5).**
+
+All proxy scores are computed and validated. No proxy inclusion decisions should be made before Step 5 results exist. The specific questions Step 5 must answer:
+
+1. **NASWOT partial Ï** after regressing out param_count â€” does it stay above 0.30?
+2. **Zen-Score partial Ï** after regressing out param_count â€” does it stay above 0.30? Is it higher or lower than NASWOT?
+3. **SynFlow partial Ï** â€” formal measurement for ablation documentation. Expected: below 0.10 â†’ excluded.
+4. **OLS vs partial Spearman agreement** â€” due to param_count's discrete multi-modal distribution, both must be computed. If they diverge, partial Spearman is the credible result.
+
+**Proxy status going into Step 5:**
+
+| Proxy | Global Ï | Status | Decision pending |
+|-------|----------|--------|------------------|
+| Param Count | 0.749 | Bias covariate only | Not evaluated as predictor |
+| Zen-Score | 0.554 | Candidate | Partial Ï measurement required |
+| NASWOT | 0.515 | Candidate | Partial Ï measurement required |
+| SynFlow | 0.164 | Degenerate distribution | Expected exclusion â€” formal measurement for ablation |
+
+**Note on multi-layer hooking:** The current NASWOT and Zen-Score scores (Ï=0.515, 0.554) were computed with multi-layer Conv2d hooking, which achieved 100% coverage vs 26â€“31% with single-layer. No A/B comparison of Ï values between the two implementations was done â€” only coverage was compared. The correlation numbers in Section 2 reflect the multi-layer implementation.
+
+Do not proceed to PCA whitening, surrogate training, or proxy addition (GradNorm, topology metrics) until Step 5 partial Ï values are in hand.
+
+---
+
+*All content below this line is superseded and has been removed.*
