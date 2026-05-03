@@ -1,0 +1,16 @@
+{
+  "n_total": 423624,
+  "n_missing_seeds": 0,
+  "n_degenerate_lt20": 646,
+  "gt_mean_pct": 89.67984771728516,
+  "gt_std_pct": 5.7995686531066895,
+  "gt_min_pct": 9.975961685180664,
+  "gt_max_pct": 94.31757354736328,
+  "r2_logparams_vs_gt": 0.04713902579212792,
+  "spearman_rho": 0.43498683201552707,
+  "spearman_pval": 0.0,
+  "top1pct_std_pct": 0.11770995706319809,
+  "top1pct_n": 4278,
+  "load_time_s": 350.9,
+  "iteration_time_s": 33.6
+}
