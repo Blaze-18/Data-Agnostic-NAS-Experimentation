@@ -1,8 +1,8 @@
 ﻿# Zero-Cost Proxy Experimentation - Progress & Analysis Notes
 
-**Date**: April 21, 2026  
-**Phase**: Steps 1â€"5 Complete | Ready for PCA Whitening (Step 6)  
-**Status**: Bias disentanglement complete â€" SynFlow excluded, NASWOT and Zen-Score retained with documented partial signal
+**Date**: April 24, 2026  
+**Phase**: Steps 1â€"6 Complete | Ready for Surrogate MLP Training (Step 7)  
+**Status**: PCA whitening complete â€" whitened 3-feature matrix (15,625 Ã— 3) ready as MLP input; all 3 PCs retained; validation PASS
 
 ---
 
@@ -47,6 +47,8 @@
 | 3 | Distribution analysis | âœ… Complete |
 | 4 | Ranking correlation validation against CIFAR-10 ground truth | âœ… Complete |
 | 5 | Bias disentanglement (regress out param_count) | âœ… Complete |
+| 6 | PCA whitening -- corrected: param_count raw + NASWOT/ZenScore residuals | ✅ Complete |
+| 7 | Surrogate MLP training + evaluation | âŒ Not started â€" NEXT |
 
 **Implementation notes:**
 - NASWOT and Zen-Score use multi-layer Conv2d hooking â€” all Conv2d layers are hooked and the mean of per-layer covariance traces is used as the score. This achieved 100% coverage vs. 26â€“31% with single-layer hooking in earlier experiments.
@@ -120,8 +122,8 @@ The accuracy distribution shows ~300 architectures near 10% accuracy. These are 
 
 ## 5. Step 5 Results: Bias Disentanglement
 
-**Script**: `scripts/proxy/bias_disentanglement.py`  
-**Output directory**: `results/debiased_proxy/`
+**Script**: `scripts/nasbench201/bias_disentanglement.py`  
+**Output directory**: `results/nasbench201/debiased_proxy/`
 
 ### 5.1 Method
 
@@ -170,148 +172,152 @@ All three proxy pairs failed the method agreement test (|delta rho| > 0.05). The
 
 **The key structural insight:** NAS-Bench-201's fixed macro skeleton (5 cells, 16 channels, constant depth and width) means param_count is the only varying structural covariate. Proxies that are theoretically sensitive to architectural expressivity (NASWOT, Zen-Score) end up heavily confounded with capacity because there is no depth or width variation to separate them. This is a known limitation of NAS-Bench-201 as a proxy evaluation benchmark.
 
-**Surrogate MLP input features (post-Step 5):** `[param_count_transformed, naswot_transformed, zenscore_transformed]` -- SynFlow excluded.
+**Surrogate MLP input features (post-Step 5):** `[param_count_transformed, naswot_residuals, zenscore_residuals]` -- SynFlow excluded. NASWOT and Zen-Score enter via their OLS residuals (param_count regressed out), not their raw transformed scores.
 
 ### 5.6 Output Files
 
 | File | Contents |
 |------|----------|
-| `results/debiased_proxy/phase_a_verification.json` | Data alignment and NaN check report |
-| `results/debiased_proxy/phase_b_summary.json` | OLS fit statistics (b0, b1, R2) per proxy |
-| `results/debiased_proxy/phase_b_residuals.png` | Residual scatter vs param_count (4 panels) |
-| `results/debiased_proxy/phase_c_scatter.png` | Residual vs GT-residual scatter (2x3 grid, both methods) |
-| `results/debiased_proxy/partial_correlations.json` | Full results: both rho values, method agreement, decision per proxy |
-| `results/debiased_proxy/{proxy}_residuals.npy` | OLS residuals for NASWOT, Zen-Score, SynFlow, GT |
+| `results/nasbench201/debiased_proxy/phase_a_verification.json` | Data alignment and NaN check report |
+| `results/nasbench201/debiased_proxy/phase_b_summary.json` | OLS fit statistics (b0, b1, R2) per proxy |
+| `results/nasbench201/debiased_proxy/phase_b_residuals.png` | Residual scatter vs param_count (4 panels) |
+| `results/nasbench201/debiased_proxy/phase_c_scatter.png` | Residual vs GT-residual scatter (2x3 grid, both methods) |
+| `results/nasbench201/debiased_proxy/partial_correlations.json` | Full results: both rho values, method agreement, decision per proxy |
+| `results/nasbench201/debiased_proxy/{proxy}_residuals.npy` | OLS residuals for NASWOT, Zen-Score, SynFlow, GT |
 
 ---
 
-## 6. Current Focus
+## 6. Step 6 Results: PCA Whitening
 
-**Step 5 is complete. The next task is PCA whitening (Step 6).**
+**Script**: `scripts/nasbench201/pca_whitening.py`  
+**Output directory**: `results/nasbench201/pca_whitening/`
 
-### Final proxy status
+### 6.1 Method
 
-| Proxy | Global rho | Param R2 | Partial rho | Decision |
-|-------|-----------|---------|------------|----------|
-| Param Count | 0.749 | -- | -- | Bias covariate (not a predictor) |
-| Zen-Score | 0.554 | 0.461 | +0.190 | **KEEP** (document partial signal) |
-| NASWOT | 0.515 | 0.432 | +0.154 | **KEEP** (document partial signal) |
-| SynFlow | 0.164 | 0.100 | -0.002 | **EXCLUDED** |
+Pipeline applied to the corrected 3-feature matrix (15,625 x 3):
 
-### Step 6: PCA Whitening
+| Column | Source | Description |
+|--------|--------|-------------|
+| 0 | `param_count_transformed.json` | Raw log-transformed size signal — the bias covariate |
+| 1 | `naswot_residuals.npy` | NASWOT with param_count regressed out (OLS, Step 5) |
+| 2 | `zenscore_residuals.npy` | ZenScore with param_count regressed out (OLS, Step 5) |
 
-**Input features:** `[param_count_transformed, naswot_transformed, zenscore_transformed]` (3 features, 15,625 rows)  
-**Objective:** Decorrelate features and standardise variance so param_count cannot dominate the surrogate by magnitude alone.
+NASWOT and ZenScore enter as their **debiased residuals**, not the raw transformed scores. This is the arrangement consistent with Step 5: param_count is the explicit size predictor; NASWOT/ZenScore contribute only their param_count-independent signal.
 
-**Method:**
-1. Fit PCA on the full 15,625-arch feature matrix -> retain components explaining >=99% variance (likely 2-3 components given the pairwise correlations)
-2. Apply whitening transform: `Z = PCA_whitened(P_transformed)` where each component has unit variance
-3. Save: fitted PCA object, transformed features for all 15,625 architectures, explained variance ratios
-4. Visualise: 2D projection of the whitened embedding coloured by GT accuracy
+Steps:
+1. **Standardise** -- z-score each feature (param_count std=1.059, naswot_residual std=0.555, zenscore_residual std=0.517)
+2. **Fit PCA** -- eigen-decompose the 3x3 covariance matrix; record all eigenvalues and explained variance ratios
+3. **Retain PCs** -- keep smallest k such that cumulative variance >= 99% (hard minimum k=2)
+4. **Whiten** -- divide each PC score by sqrt(eigenvalue) --> output has exactly zero mean and identity covariance
+5. **Validate** -- assert `|col_mean| < 1e-5` and `max|Cov(Z) - I| < 1e-4`
 
-**Expected:** PC1 will align heavily with param_count (dominant axis). PC2-PC3 will capture the residual NASWOT/Zen-Score signal. After whitening, all components contribute equally to the surrogate input.
+### 6.2 Input Feature Correlations (Pre-PCA)
 
-**Output files (Step 6):**
-- `results/pca_whitening/pca_model.pkl` -- fitted PCA object (for inference-time re-use)
-- `results/pca_whitening/whitened_features.npy` -- transformed feature matrix (15625 x n_components)
-- `results/pca_whitening/explained_variance.json` -- variance ratios per component
-- `results/pca_whitening/embedding_plot.png` -- 2D scatter coloured by GT accuracy
+| Feature pair | Pearson r | Note |
+|---|---|---|
+| param_count <-> naswot_residual | **~0.000** | Forced to zero by OLS construction |
+| param_count <-> zenscore_residual | **~0.000** | Forced to zero by OLS construction |
+| naswot_residual <-> zenscore_residual | 0.559 | Residual shared activation signal |
 
-## 5. Step 5 Results: Bias Disentanglement
+For reference, raw transformed score correlations were: param↔naswot=0.657, param↔zenscore=0.679, naswot↔zenscore=0.756. Residualisation reduced the naswot↔zenscore correlation from 0.756 to 0.559, confirming the debiasing removed the param_count-mediated component of their shared variance.
 
-**Script**: `scripts/proxy/bias_disentanglement.py`  
-**Output directory**: `results/debiased_proxy/`
+The residual-residual correlation of 0.559 motivates PCA: the two debiased proxies still share ~31% of variance (r²=0.312), so whitening ensures neither dominates the MLP input.
 
-### 5.1 Method
+### 6.3 PCA Results
 
-For each proxy P in {SynFlow, NASWOT, Zen-Score} and for GT accuracy:
-1. OLS regression: `P ~ b0 + b1 * param_count_transformed` -> save residuals `e_P`
-2. **Method 1 (OLS residual Spearman):** `spearmanr(e_P, e_GT)`
-3. **Method 2 (Partial rank Spearman):** regress `rank(P) ~ rank(param_count)` and `rank(GT) ~ rank(param_count)`, correlate rank-residuals
-4. If `|Method1 - Method2| < 0.05` -> methods agree, use OLS. Otherwise use partial rank Spearman as primary (robust to discrete covariate).
+| PC | Eigenvalue | Var % | Cumulative % | Retained |
+|---|---|---|---|---|
+| PC1 | 1.559 | **52.0%** | 52.0% | Yes |
+| PC2 | 1.000 | **33.3%** | 85.3% | Yes |
+| PC3 | 0.441 | **14.7%** | 100.0% | Yes |
 
-### 5.2 OLS Fit Statistics (Phase B)
+All 3 components retained. The eigenvalue structure is dramatically more balanced than the old run (52/33/15 vs 80/12/8), which is the expected result after residualisation: param_count no longer contributes its full raw variance to PC1 since it is now orthogonal to the residual columns by construction.
 
-| Target | b1 (slope) | R2 | Interpretation |
-|--------|------------|-----|----------------|
-| GT accuracy | 4.84 | 0.157 | 15.7% of GT variance explained by size alone |
-| SynFlow | 3.63 | 0.100 | 10.0% of SynFlow variance from size |
-| NASWOT | 0.46 | 0.432 | **43.2%** of NASWOT variance from size |
-| Zen-Score | 0.45 | 0.461 | **46.1%** of Zen-Score variance from size |
+**PC2 eigenvalue = 1.000 exactly** (to 3 d.p.) confirms it is a purely residual axis — this is the unit-variance dimension that OLS guarantees for the param_count predictor itself after centering.
 
-Nearly half the variance in NASWOT and Zen-Score is structural capacity, not activation quality signal.
+### 6.4 Validation Results
 
-### 5.3 Partial Correlation Results (Phase C)
+| Check | Result | Tolerance | Status |
+|---|---|---|---|
+| Max column mean | 2.42e-08 | 1e-05 | **PASS** |
+| Max abs deviation from I | 1.03e-08 | 1e-04 | **PASS** |
 
-| Proxy | OLS residual rho | Partial rank rho | Methods agree | Primary method | Partial rho |
-|-------|-----------------|-----------------|---------------|----------------|------------|
-| SynFlow | +0.1155 | **-0.0019** | No | partial_rank_spearman | **-0.002** |
-| NASWOT | +0.3050 | **+0.1541** | No | partial_rank_spearman | **+0.154** |
-| Zen-Score | +0.3377 | **+0.1895** | No | partial_rank_spearman | **+0.190** |
+Covariance matrix of whitened output:
+```
++1.000000  +0.000000  -0.000000
++0.000000  +1.000000  +0.000000
+-0.000000  +0.000000  +1.000000
+```
 
-All three proxy pairs failed the method agreement test (|delta rho| > 0.05). The OLS residual method is optimistic in all cases because param_count is discrete (~28 unique values, 3-4 peaks) -- OLS residuals retain non-linear structure that the partial rank method correctly handles. Partial rank Spearman is the credible primary result for all proxies.
+### 6.5 Analysis and Interpretation
 
-### 5.4 Decisions (Phase D)
+**The corrected eigenvalue structure is substantially healthier.** PC1 at 52% (not 80%) means the MLP input is far less dominated by a single direction. The three retained components now have a meaningful spread of information content.
 
-| Proxy | Partial rho | p-value | Decision |
-|-------|------------|---------|----------|
-| SynFlow | -0.002 | 0.81 | **EXCLUDE** -- zero independent signal |
-| NASWOT | +0.154 | 1.1e-83 | **KEEP (documented)** -- partial signal below 0.30 threshold |
-| Zen-Score | +0.190 | 2.7e-126 | **KEEP (documented)** -- partial signal below 0.30 threshold |
+**PC1 (52%) is the joint activation quality axis**, with loadings [0, 0.707, 0.707] — the equal-weight sum of naswot_residual and zenscore_residual. param_count loading is numerically zero (5×10⁻¹⁴). This is the consensus signal both debiased proxies share, and it is the largest single source of variance precisely because the two residuals correlate at r = 0.559 — their shared component is larger than either individual residual variance.
 
-**Decision threshold applied:** rho >= 0.30 -> KEEP; 0.10-0.30 -> KEEP_DOCUMENTED; < 0.10 -> EXCLUDE.
+**PC2 (33%) is the pure param_count axis**, with loadings [1.000, 0, 0]. The eigenvalue of exactly 1.000 is guaranteed by the OLS construction: param_count is orthogonal to both residuals, so it forms its own independent eigenvector with eigenvalue equal to its standardised variance (= 1 by definition after z-scoring). This is the size channel.
 
-### 5.5 Interpretation
+**PC3 (15%) is the contrast axis**, encoding the difference between naswot_residual and zenscore_residual — the portion where NASWOT and ZenScore disagree after param_count is removed. This is the most genuinely independent piece of information in the feature set.
 
-**SynFlow** is confirmed excluded. Its entire global rho of 0.164 was driven by correlation with architectural size. After removing that effect, rho = -0.002 (p = 0.81) -- indistinguishable from noise. It adds no independent information beyond param_count and would introduce noise into the surrogate input.
+**The MLP now has balanced inputs.** No single PC dominates. The surrogate can in principle learn from the size signal (PC1), the shared activation quality signal (PC2), and the proxy-contrast signal (PC3) with equal representation after whitening.
 
-**NASWOT and Zen-Score** retain real but modest independent signal (rho = 0.15-0.19). Both p-values are effectively zero across 15,625 architectures, so the signal is statistically undeniable. However, both fall in the KEEP_DOCUMENTED band -- not the clean >=0.30 threshold. The OLS method gave rho = 0.30-0.34 but this was an artefact of param_count's discrete distribution inflating the OLS residual correlation.
+**Limitation still applies:** The partial rho values from Step 5 (0.154 and 0.190) show that PC2 and PC3 together only have modest correlation with GT accuracy. The MLP cannot exceed what the input information allows. The ablation (raw features vs PCA-only vs full pipeline) will quantify how much whitening actually helps.
 
-**The key structural insight:** NAS-Bench-201's fixed macro skeleton (5 cells, 16 channels, constant depth and width) means param_count is the only varying structural covariate. Proxies that are theoretically sensitive to architectural expressivity (NASWOT, Zen-Score) end up heavily confounded with capacity because there is no depth or width variation to separate them. This is a known limitation of NAS-Bench-201 as a proxy evaluation benchmark.
+### 6.6 Output Files
 
-**Surrogate MLP input features (post-Step 5):** `[param_count_transformed, naswot_transformed, zenscore_transformed]` -- SynFlow excluded.
-
-### 5.6 Output Files
-
-| File | Contents |
-|------|----------|
-| `results/debiased_proxy/phase_a_verification.json` | Data alignment and NaN check report |
-| `results/debiased_proxy/phase_b_summary.json` | OLS fit statistics (b0, b1, R2) per proxy |
-| `results/debiased_proxy/phase_b_residuals.png` | Residual scatter vs param_count (4 panels) |
-| `results/debiased_proxy/phase_c_scatter.png` | Residual vs GT-residual scatter (2x3 grid, both methods) |
-| `results/debiased_proxy/partial_correlations.json` | Full results: both rho values, method agreement, decision per proxy |
-| `results/debiased_proxy/{proxy}_residuals.npy` | OLS residuals for NASWOT, Zen-Score, SynFlow, GT |
+| File | Size | Contents |
+|------|------|----------|
+| `results/nasbench201/pca_whitening/scaler.pkl` | 0.5 KB | Fitted `StandardScaler` (z-score params for inference) |
+| `results/nasbench201/pca_whitening/pca_model.pkl` | 0.8 KB | Fitted `PCA(whiten=True)` (loadings + eigenvalues for inference) |
+| `results/nasbench201/pca_whitening/arch_ids.npy` | 61 KB | `(15625,)` int32 -- row-to-arch_id alignment |
+| `results/nasbench201/pca_whitening/whitened_features.npy` | 183 KB | `(15625, 3)` float32 -- MLP input features |
+| `results/nasbench201/pca_whitening/pca_summary.json` | 1.4 KB | All metadata: variance ratios, loadings, scaler params, validation stats |
+| `results/nasbench201/pca_whitening/pca_plots.png` | 238 KB | 4-panel diagnostic: input correlations, scree, PC1 vs PC2 scatter, output covariance |
 
 ---
 
-## 6. Current Focus
+## 7. Current Focus
 
-**Step 5 is complete. The next task is PCA whitening (Step 6).**
+**Step 6 is complete. The next task is surrogate MLP training (Step 7).**
 
-### Final proxy status
+### Final proxy and feature status
 
 | Proxy | Global rho | Param R2 | Partial rho | Decision |
 |-------|-----------|---------|------------|----------|
-| Param Count | 0.749 | -- | -- | Bias covariate (not a predictor) |
-| Zen-Score | 0.554 | 0.461 | +0.190 | **KEEP** (document partial signal) |
-| NASWOT | 0.515 | 0.432 | +0.154 | **KEEP** (document partial signal) |
+| Param Count | 0.749 | -- | -- | Bias covariate --> PCA input |
+| Zen-Score | 0.554 | 0.461 | +0.190 | **KEEP** --> PCA input |
+| NASWOT | 0.515 | 0.432 | +0.154 | **KEEP** --> PCA input |
 | SynFlow | 0.164 | 0.100 | -0.002 | **EXCLUDED** |
 
-### Step 6: PCA Whitening
+| PCA Component | Eigenvalue | Var % | Role |
+|---|---|---|---|
+| PC1 | 1.559 | 52.0% | Joint activation quality axis (sum of naswot_r + zenscore_r) |
+| PC2 | 1.000 | 33.3% | Pure param_count axis (orthogonal to residuals by OLS construction) |
+| PC3 | 0.441 | 14.7% | Proxy contrast axis (naswot_r − zenscore_r difference signal) |
 
-**Input features:** `[param_count_transformed, naswot_transformed, zenscore_transformed]` (3 features, 15,625 rows)  
-**Objective:** Decorrelate features and standardise variance so param_count cannot dominate the surrogate by magnitude alone.
+### Step 7: Surrogate MLP Training
 
-**Method:**
-1. Fit PCA on the full 15,625-arch feature matrix -> retain components explaining >=99% variance (likely 2-3 components given the pairwise correlations)
-2. Apply whitening transform: `Z = PCA_whitened(P_transformed)` where each component has unit variance
-3. Save: fitted PCA object, transformed features for all 15,625 architectures, explained variance ratios
-4. Visualise: 2D projection of the whitened embedding coloured by GT accuracy
+**Input:** `results/nasbench201/pca_whitening/whitened_features.npy` -- shape `(15625, 3)`, float32  
+**Target:** CIFAR-10 test accuracy at epoch 199 (`ori-test@199`) from `data/nasbench201/chunks_clean/arch2infos/`  
+**Objective:** Learn a rank-preserving mapping from whitened proxy features to architecture performance score.
 
-**Expected:** PC1 will align heavily with param_count (dominant axis). PC2-PC3 will capture the residual NASWOT/Zen-Score signal. After whitening, all components contribute equally to the surrogate input.
+**Architecture:** Shallow MLP: `3 --> 64 --> 32 --> 1`, ReLU activations, scalar output
 
-**Output files (Step 6):**
-- `results/pca_whitening/pca_model.pkl` -- fitted PCA object (for inference-time re-use)
-- `results/pca_whitening/whitened_features.npy` -- transformed feature matrix (15625 x n_components)
-- `results/pca_whitening/explained_variance.json` -- variance ratios per component
-- `results/pca_whitening/embedding_plot.png` -- 2D scatter coloured by GT accuracy
+**Loss function:** Pairwise ranking loss (not MSE) -- optimises rank ordering directly, consistent with Spearman rho as evaluation metric:
+```
+L_rank = sum_{i,j} max(0, -(y_i - y_j)(y_hat_i - y_hat_j))
+```
+
+**Training protocol:**
+- Split: 80% train / 10% val / 10% test (fixed seed for reproducibility)
+- Optimiser: Adam
+- Early stopping on validation ranking loss
+
+**Evaluation metrics:** Spearman rho, Kendall tau, top-K precision (K = 1%, 5%, 10%) on held-out test set  
+**Ablation targets:** (1) raw features (no PCA), (2) PCA without whitening, (3) full pipeline
+
+**Output files (Step 7):**
+- `results/nasbench201/surrogate_mlp/mlp_model.pkl` -- trained model
+- `results/nasbench201/surrogate_mlp/training_curves.png` -- loss/metric vs epoch
+- `results/nasbench201/surrogate_mlp/evaluation_results.json` -- all metrics on test set
+- `results/nasbench201/surrogate_mlp/ablation_results.json` -- ablation comparison table

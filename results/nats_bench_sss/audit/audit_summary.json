@@ -1,0 +1,202 @@
+{
+  "q1_gt_key": {
+    "status": "PASS",
+    "spot_accuracies": {
+      "0": 79.79,
+      "1000": 90.14,
+      "8192": 82.18,
+      "16383": 93.34,
+      "32767": 93.4
+    },
+    "extraction_pattern": "dict access",
+    "gt_key": "('cifar10', 777)"
+  },
+  "q2_distribution": {
+    "n": 32768,
+    "min": 79.79,
+    "max": 93.65,
+    "mean": 91.08546417236327,
+    "std": 1.2723439747417344,
+    "p5": 88.71,
+    "p25": 90.43,
+    "median": 91.31,
+    "p75": 91.99,
+    "p95": 92.7,
+    "n_below_30pct": 0,
+    "n_below_50pct": 0,
+    "top1pct_threshold": 93.05,
+    "top10pct_accuracy_range": [
+      92.46,
+      93.65
+    ],
+    "top10pct_spread": 1.190000000000012
+  },
+  "q3_arch_space": {
+    "status": "PASS",
+    "n_parsed": 32768,
+    "parse_errors": 0,
+    "position_info": {
+      "pos_0": {
+        "n_unique": 8,
+        "values": [
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64
+        ],
+        "variance": 336.0
+      },
+      "pos_1": {
+        "n_unique": 8,
+        "values": [
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64
+        ],
+        "variance": 336.0
+      },
+      "pos_2": {
+        "n_unique": 8,
+        "values": [
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64
+        ],
+        "variance": 336.0
+      },
+      "pos_3": {
+        "n_unique": 8,
+        "values": [
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64
+        ],
+        "variance": 336.0
+      },
+      "pos_4": {
+        "n_unique": 8,
+        "values": [
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64
+        ],
+        "variance": 336.0
+      }
+    },
+    "combinatorics_ok": true,
+    "value_set_ok": true
+  },
+  "q4_covariate": {
+    "status": "PASS",
+    "n_aligned": 32768,
+    "position_rhos": {
+      "pos_0": {
+        "rho": 0.45548593909568463,
+        "p": 0.0
+      },
+      "pos_1": {
+        "rho": 0.31177392513965557,
+        "p": 0.0
+      },
+      "pos_2": {
+        "rho": 0.5272780783961031,
+        "p": 0.0
+      },
+      "pos_3": {
+        "rho": 0.42700181942018545,
+        "p": 0.0
+      },
+      "pos_4": {
+        "rho": 0.3244611961026896,
+        "p": 0.0
+      }
+    },
+    "param_proxy_sq_rho": 0.8566485797924676,
+    "param_proxy_sq_p": 0.0,
+    "param_proxy_sum_rho": 0.9253462845965025,
+    "recommendation": "single_covariate_param_count",
+    "max_position_rho": 0.5272780783961031,
+    "best_individual_position": 2,
+    "position_pairwise_corr": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "q5_flops": {
+    "status": "PASS",
+    "flops_available": false,
+    "note": "Not found at epoch-data level; may require API computation.",
+    "fields_found": []
+  },
+  "q6_direction": {
+    "status": "PASS",
+    "n_subset": 200,
+    "rho_raw": 0.4632832858439537,
+    "p_raw": 4.919005288294609e-12,
+    "rho_log": 0.4632832858439537,
+    "direction": "positive",
+    "negation_needed": false,
+    "transform_note": "log(score + \u03b5)  \u2014 NO negation",
+    "score_range": [
+      0.00041516081214768046,
+      0.003721342052280024
+    ]
+  }
+}

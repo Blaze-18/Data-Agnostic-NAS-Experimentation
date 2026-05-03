@@ -1,0 +1,98 @@
+{
+  "param_count_raw": {
+    "proxy_name": "param_count_raw",
+    "count": 32768,
+    "spearman_rho": 0.8720658134292794,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.6903566684585732,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Strong",
+    "topk_precision_1pct": 0.5045871559633027,
+    "topk_precision_5pct": 0.6233211233211233,
+    "topk_precision_10pct": 0.6840659340659341
+  },
+  "naswot_raw": {
+    "proxy_name": "naswot_raw",
+    "count": 32768,
+    "spearman_rho": 0.5235137828940146,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.3642810277114076,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Moderate",
+    "topk_precision_1pct": 0.07951070336391437,
+    "topk_precision_5pct": 0.21733821733821734,
+    "topk_precision_10pct": 0.3162393162393162
+  },
+  "zenscore_raw": {
+    "proxy_name": "zenscore_raw",
+    "count": 32768,
+    "spearman_rho": 0.556619779292518,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.3898490633329453,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Moderate",
+    "topk_precision_1pct": 0.0856269113149847,
+    "topk_precision_5pct": 0.23809523809523808,
+    "topk_precision_10pct": 0.32875457875457875
+  },
+  "synflow_raw": {
+    "proxy_name": "synflow_raw",
+    "count": 32768,
+    "spearman_rho": 0.9161535658758682,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.7515641346494449,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Strong",
+    "topk_precision_1pct": 0.5229357798165137,
+    "topk_precision_5pct": 0.6807081807081807,
+    "topk_precision_10pct": 0.73992673992674
+  },
+  "param_count_transformed": {
+    "proxy_name": "param_count_transformed",
+    "count": 32768,
+    "spearman_rho": 0.8720658134292794,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.6903566684585732,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Strong",
+    "topk_precision_1pct": 0.5045871559633027,
+    "topk_precision_5pct": 0.6233211233211233,
+    "topk_precision_10pct": 0.6840659340659341
+  },
+  "naswot_transformed": {
+    "proxy_name": "naswot_transformed",
+    "count": 32768,
+    "spearman_rho": 0.5235137828940146,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.3642810277114076,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Moderate",
+    "topk_precision_1pct": 0.07951070336391437,
+    "topk_precision_5pct": 0.21733821733821734,
+    "topk_precision_10pct": 0.3162393162393162
+  },
+  "zenscore_transformed": {
+    "proxy_name": "zenscore_transformed",
+    "count": 32768,
+    "spearman_rho": 0.556619779292518,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.3898490633329453,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Moderate",
+    "topk_precision_1pct": 0.0856269113149847,
+    "topk_precision_5pct": 0.23809523809523808,
+    "topk_precision_10pct": 0.32875457875457875
+  },
+  "synflow_transformed": {
+    "proxy_name": "synflow_transformed",
+    "count": 32768,
+    "spearman_rho": 0.9161535658758682,
+    "spearman_pvalue": 0.0,
+    "kendall_tau": 0.7515641346494449,
+    "kendall_pvalue": 0.0,
+    "interpretation": "Strong",
+    "topk_precision_1pct": 0.5229357798165137,
+    "topk_precision_5pct": 0.6807081807081807,
+    "topk_precision_10pct": 0.73992673992674
+  }
+}
