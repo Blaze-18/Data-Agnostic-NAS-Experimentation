@@ -28,8 +28,8 @@ from pathlib import Path
 # Paths
 # ---------------------------------------------------------------------------
 
-ROOT_DIR    = Path("F:/Thesis/Experimentation")
-DATA_FILE   = ROOT_DIR / "data/nasbench101/nasbench_full.tfrecord"
+ROOT_DIR    = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+DATA_FILE   = ROOT_DIR / "data/nas101/nasbench_full.tfrecord"
 OUT_DIR     = ROOT_DIR / "results/nasbench101/audit"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 

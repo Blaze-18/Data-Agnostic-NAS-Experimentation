@@ -1,0 +1,17 @@
+{
+  "synflow": {
+    "ols_residual_rho": 0.21791697643415173,
+    "partial_rank_rho": 0.24199181678295717,
+    "decision": "KEEP_DOCUMENTED"
+  },
+  "naswot": {
+    "ols_residual_rho": 0.06717249519605231,
+    "partial_rank_rho": 0.10336222130563577,
+    "decision": "KEEP_DOCUMENTED"
+  },
+  "zenscore": {
+    "ols_residual_rho": 0.0672592583825818,
+    "partial_rank_rho": 0.10318006931681348,
+    "decision": "KEEP_DOCUMENTED"
+  }
+}

@@ -209,6 +209,9 @@ def build_nasbench101_model(adjacency: np.ndarray,
 
 
 def get_device() -> torch.device:
+    """Auto-detect GPU if available, else CPU."""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
     return torch.device("cpu")
 
 

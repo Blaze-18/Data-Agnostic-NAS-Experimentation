@@ -17,7 +17,7 @@ import json
 from pathlib import Path
 from scipy.stats import spearmanr, kendalltau
 
-ROOT_DIR   = Path("F:/Thesis/Experimentation")
+ROOT_DIR   = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
 AUDIT_DIR  = ROOT_DIR / "results/nasbench101/audit"
 TRANS_DIR  = ROOT_DIR / "results/nasbench101/transformed_proxy"
 OUT_DIR    = ROOT_DIR / "results/nasbench101/proxy_validation"

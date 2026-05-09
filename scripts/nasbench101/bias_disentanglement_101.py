@@ -26,8 +26,12 @@ import numpy as np
 import json
 from pathlib import Path
 from scipy.stats import spearmanr
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
-ROOT_DIR   = Path("F:/Thesis/Experimentation")
+ROOT_DIR   = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
 AUDIT_DIR  = ROOT_DIR / "results/nasbench101/audit"
 TRANS_DIR  = ROOT_DIR / "results/nasbench101/transformed_proxy"
 OUT_DIR    = ROOT_DIR / "results/nasbench101/debiased_proxy"
@@ -136,6 +140,95 @@ def main():
     excl = [n for n, v in partial_results.items() if v["decision"] == "EXCLUDE"]
     print(f"\nKept proxies:     {kept}", flush=True)
     print(f"Excluded proxies: {excl}", flush=True)
+
+    # ── Plots ───────────────────────────────────────────────────────────────
+    proxy_data = {}
+    for name, fname in PROXIES:
+        path = TRANS_DIR / fname
+        if path.exists():
+            arr = np.load(path).astype(np.float64)
+            proxy_data[name] = np.where(np.isfinite(arr), arr, np.nanmedian(arr))
+
+    n_proxies  = len(proxy_data)
+    fig_rows   = 4  # raw-vs-gt | residual-vs-gt | residual-dist | partial-rank-scatter
+    fig        = plt.figure(figsize=(6 * n_proxies, 5 * fig_rows))
+    gs         = gridspec.GridSpec(fig_rows, n_proxies, figure=fig,
+                                   hspace=0.50, wspace=0.35)
+
+    gt_norm = (gt - gt.min()) / (gt.max() - gt.min() + 1e-12)
+
+    for col_idx, (name, _) in enumerate([p for p in PROXIES if p[0] in proxy_data]):
+        proxy   = proxy_data[name]
+        res     = np.load(OUT_DIR / f"{name}_residuals.npy").astype(np.float64)
+        rho_raw, _ = spearmanr(proxy, gt)
+        rho_res, _ = spearmanr(res,   gt)
+        info    = partial_results[name]
+        decision_color = {"KEEP": "#2ecc71", "KEEP_DOCUMENTED": "#f39c12",
+                          "EXCLUDE": "#e74c3c"}[info["decision"]]
+
+        # Sample for scatter (max 8000 pts for speed)
+        rng   = np.random.default_rng(42)
+        idx   = rng.choice(len(gt), min(8000, len(gt)), replace=False)
+
+        # Row 0: Raw proxy vs GT
+        ax0 = fig.add_subplot(gs[0, col_idx])
+        sc0 = ax0.scatter(proxy[idx], gt[idx], c=gt_norm[idx], cmap='viridis',
+                          alpha=0.25, s=4, rasterized=True)
+        m0, b0 = np.polyfit(proxy[idx], gt[idx], 1)
+        xs = np.linspace(proxy[idx].min(), proxy[idx].max(), 200)
+        ax0.plot(xs, m0 * xs + b0, 'r-', lw=1.5, label=f'OLS fit')
+        ax0.set_title(f"{name}\nRaw log-proxy vs GT  (ρ={rho_raw:.3f})", fontsize=10)
+        ax0.set_xlabel(f"log({name})", fontsize=8)
+        ax0.set_ylabel("GT accuracy", fontsize=8)
+        ax0.tick_params(labelsize=7)
+        plt.colorbar(sc0, ax=ax0, label='GT (norm)', pad=0.01)
+
+        # Row 1: OLS Residuals vs GT
+        ax1 = fig.add_subplot(gs[1, col_idx])
+        sc1 = ax1.scatter(res[idx], gt[idx], c=gt_norm[idx], cmap='plasma',
+                          alpha=0.25, s=4, rasterized=True)
+        m1, b1 = np.polyfit(res[idx], gt[idx], 1)
+        xs1 = np.linspace(res[idx].min(), res[idx].max(), 200)
+        ax1.plot(xs1, m1 * xs1 + b1, 'r-', lw=1.5)
+        ax1.axvline(0, color='k', lw=0.8, ls='--', alpha=0.5)
+        ax1.set_title(f"Debiased residuals vs GT  (ρ={rho_res:.3f})", fontsize=10)
+        ax1.set_xlabel(f"{name} residual", fontsize=8)
+        ax1.set_ylabel("GT accuracy", fontsize=8)
+        ax1.tick_params(labelsize=7)
+        plt.colorbar(sc1, ax=ax1, label='GT (norm)', pad=0.01)
+
+        # Row 2: Residual distribution
+        ax2 = fig.add_subplot(gs[2, col_idx])
+        ax2.hist(res, bins=120, color=decision_color, alpha=0.75, edgecolor='none')
+        ax2.axvline(0, color='k', lw=1, ls='--')
+        ax2.set_title(f"Residual distribution\n({info['decision']}  partial ρ={info['partial_rank_rho']:.3f})",
+                      fontsize=10, color=decision_color)
+        ax2.set_xlabel("Residual value", fontsize=8)
+        ax2.set_ylabel("Count", fontsize=8)
+        ax2.tick_params(labelsize=7)
+
+        # Row 3: Partial-rank scatter (rank residuals)
+        r_proxy = proxy.argsort().argsort().astype(np.float64)
+        r_gt    = gt.argsort().argsort().astype(np.float64)
+        r_cov   = log_params.argsort().argsort().astype(np.float64)
+        res_pr  = ols_residuals(r_proxy, r_cov)
+        res_gt  = ols_residuals(r_gt,    r_cov)
+        ax3 = fig.add_subplot(gs[3, col_idx])
+        ax3.scatter(res_pr[idx], res_gt[idx], c=gt_norm[idx], cmap='coolwarm',
+                    alpha=0.20, s=4, rasterized=True)
+        m3, b3 = np.polyfit(res_pr[idx], res_gt[idx], 1)
+        xs3 = np.linspace(res_pr[idx].min(), res_pr[idx].max(), 200)
+        ax3.plot(xs3, m3 * xs3 + b3, 'k-', lw=1.5)
+        ax3.set_title(f"Partial-rank scatter  (partial ρ={info['partial_rank_rho']:.3f})", fontsize=10)
+        ax3.set_xlabel(f"rank({name}) residual", fontsize=8)
+        ax3.set_ylabel("rank(GT) residual", fontsize=8)
+        ax3.tick_params(labelsize=7)
+
+    fig.suptitle("NAS-Bench-101 — Step 5: Bias Disentanglement", fontsize=14, fontweight='bold', y=1.005)
+    out_png = OUT_DIR / "bias_disentanglement_plots.png"
+    fig.savefig(out_png, dpi=120, bbox_inches='tight')
+    plt.close(fig)
+    print(f"\nSaved plots → {out_png}", flush=True)
 
 
 if __name__ == "__main__":

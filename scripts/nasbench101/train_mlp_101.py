@@ -36,8 +36,11 @@ from pathlib import Path
 from scipy.stats import spearmanr, kendalltau
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
-ROOT_DIR    = Path("F:/Thesis/Experimentation")
+ROOT_DIR    = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
 AUDIT_DIR   = ROOT_DIR / "results/nasbench101/audit"
 TRANS_DIR   = ROOT_DIR / "results/nasbench101/transformed_proxy"
 VALID_DIR   = ROOT_DIR / "results/nasbench101/proxy_validation"
@@ -82,16 +85,24 @@ class MLP(nn.Module):
 def pairwise_ranking_loss(pred: torch.Tensor, target: torch.Tensor,
                           n_pairs: int = 2048) -> torch.Tensor:
     """
-    Sample random pairs (i, j) where target[i] > target[j].
-    Loss = mean(ReLU(-(pred[i] - pred[j]))).
+    RankNet loss: for pairs (i, j) where target[i] > target[j],
+    loss = mean(log(1 + exp(-(pred[i] - pred[j])))),
+    i.e.  mean(-log_sigmoid(pred[i] - pred[j])).
+
+    Unlike relu(-diff), this is strictly positive for equal predictions,
+    so it has no degenerate constant-output minimum.
+    n_pairs is capped to len(pred) to handle small batches safely.
     """
-    idx_i = torch.randint(0, len(pred), (n_pairs,))
-    idx_j = torch.randint(0, len(pred), (n_pairs,))
+    n_pairs = min(n_pairs, len(pred))
+    idx_i = torch.randint(0, len(pred), (n_pairs,), device=pred.device)
+    idx_j = torch.randint(0, len(pred), (n_pairs,), device=pred.device)
     mask  = target[idx_i] > target[idx_j]
     if mask.sum() == 0:
-        return torch.tensor(0.0, requires_grad=True)
+        # No valid pairs in this batch — return a small constant so
+        # the optimiser still has a gradient signal.
+        return pred.sum() * 0.0 + torch.log(torch.tensor(2.0, device=pred.device))
     diff = pred[idx_i[mask]] - pred[idx_j[mask]]
-    return torch.relu(-diff).mean()
+    return torch.nn.functional.softplus(-diff).mean()  # log(1+exp(-d))
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +115,7 @@ def train_and_eval(X_all: np.ndarray, gt_all: np.ndarray,
     Train an MLP on X_all -> gt_all using pairwise ranking loss.
     Returns dict of evaluation metrics.
     """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
@@ -116,24 +128,26 @@ def train_and_eval(X_all: np.ndarray, gt_all: np.ndarray,
     idx_val   = idx[n_train:n_train + n_val]
     idx_test  = idx[n_train + n_val:]
 
-    X_tr  = torch.from_numpy(X_all[idx_train].astype(np.float32))
-    y_tr  = torch.from_numpy(gt_all[idx_train].astype(np.float32))
-    X_val = torch.from_numpy(X_all[idx_val].astype(np.float32))
-    y_val = torch.from_numpy(gt_all[idx_val].astype(np.float32))
-    X_te  = torch.from_numpy(X_all[idx_test].astype(np.float32))
+    X_tr  = torch.from_numpy(X_all[idx_train].astype(np.float32)).to(device)
+    y_tr  = torch.from_numpy(gt_all[idx_train].astype(np.float32)).to(device)
+    X_val = torch.from_numpy(X_all[idx_val].astype(np.float32)).to(device)
+    y_val = torch.from_numpy(gt_all[idx_val].astype(np.float32)).to(device)
+    X_te  = torch.from_numpy(X_all[idx_test].astype(np.float32)).to(device)
     y_te  = gt_all[idx_test]
 
-    model     = MLP(in_dim=X_all.shape[1])
+    model     = MLP(in_dim=X_all.shape[1]).to(device)
     optimizer = optim.Adam(model.parameters(), lr=LR)
 
     best_val_loss  = float("inf")
     best_state     = None
     patience_count = 0
+    train_loss_history = []
+    val_loss_history   = []
 
     for epoch in range(MAX_EPOCHS):
         model.train()
         # Mini-batch loop
-        perm   = torch.randperm(len(X_tr))
+        perm   = torch.randperm(len(X_tr), device=device)
         losses = []
         for start in range(0, len(X_tr), BATCH_SIZE):
             batch_idx = perm[start:start + BATCH_SIZE]
@@ -150,6 +164,9 @@ def train_and_eval(X_all: np.ndarray, gt_all: np.ndarray,
         with torch.no_grad():
             val_pred = model(X_val)
             val_loss = pairwise_ranking_loss(val_pred, y_val).item()
+
+        train_loss_history.append(float(np.mean(losses)))
+        val_loss_history.append(val_loss)
 
         if val_loss < best_val_loss:
             best_val_loss  = val_loss
@@ -168,7 +185,7 @@ def train_and_eval(X_all: np.ndarray, gt_all: np.ndarray,
     model.eval()
 
     with torch.no_grad():
-        test_pred = model(X_te).numpy()
+        test_pred = model(X_te).cpu().numpy()
 
     # Metrics on test set
     comp_mask = y_te > COMP_THRESH
@@ -202,6 +219,8 @@ def train_and_eval(X_all: np.ndarray, gt_all: np.ndarray,
         "top5pct_precision":        float(prec5),
         "top10pct_precision":       float(prec10),
         "best_val_loss":            float(best_val_loss),
+        "train_loss_history":       train_loss_history,
+        "val_loss_history":         val_loss_history,
     }
 
     print(f"    [{variant_name}] rho_global={rho_g:.4f}  rho_comp={rho_c:.4f}  "
@@ -224,22 +243,28 @@ def build_size_only(gt):
 
 
 def build_best_raw(gt):
-    """Variant 2: best single raw proxy (highest global Spearman rho, from Step 4)."""
+    """Variant 2: best single *activation/gradient* proxy (highest global Spearman rho,
+    excluding param_count which is already covered by size_only).
+    This isolates the value of the activation-based signal alone.
+    """
     with open(VALID_DIR / "correlation_results.json") as f:
         corr = json.load(f)
 
-    proxies = ["synflow", "naswot", "zenscore"]
-    best_name = max(proxies,
+    # Deliberately exclude param_count — size_only already covers it.
+    # This variant answers: "how much does the best activation proxy alone give?"
+    candidates = ["synflow", "naswot", "zenscore"]
+    file_map   = {
+        "synflow":  "synflow_log.npy",
+        "naswot":   "naswot_log.npy",
+        "zenscore": "zenscore_log.npy",
+    }
+    best_name = max(candidates,
                     key=lambda p: abs(corr.get(p, {}).get("global", {})
                                       .get("spearman_rho", 0.0)))
-    print(f"  Best raw proxy: {best_name}  rho="
+    print(f"  Best activation proxy: {best_name}  rho="
           f"{corr[best_name]['global']['spearman_rho']:.4f}", flush=True)
 
-    path = TRANS_DIR / f"{best_name}_log.npy"
-    if not path.exists():
-        # Fallback to param_count
-        path = TRANS_DIR / "param_count_log.npy"
-    arr = np.load(path).astype(np.float64)
+    arr = np.load(TRANS_DIR / file_map[best_name]).astype(np.float64)
     arr = np.where(np.isfinite(arr), arr, np.nanmedian(arr))
     scaler = StandardScaler()
     X = scaler.fit_transform(arr.reshape(-1, 1))
@@ -277,6 +302,8 @@ def build_full_pipeline():
 # ---------------------------------------------------------------------------
 
 def main():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}", flush=True)
     gt = np.load(AUDIT_DIR / "gt_accuracies.npy").astype(np.float64)
     print(f"GT loaded: n={len(gt)}\n", flush=True)
 
@@ -328,6 +355,53 @@ def main():
               f"{r['spearman_rho_competitive']:>7.4f} "
               f"{r['top5pct_precision']:>6.3f} "
               f"{r['top10pct_precision']:>7.3f}", flush=True)
+
+    # ── Plot 1: Training curves per variant ──────────────────────────────────
+    fig, axes = plt.subplots(1, len(all_results), figsize=(5 * len(all_results), 4),
+                             sharey=False)
+    if len(all_results) == 1:
+        axes = [axes]
+    for ax, r in zip(axes, all_results):
+        ax.plot(r["train_loss_history"], label="train", lw=1.5)
+        ax.plot(r["val_loss_history"],   label="val",   lw=1.5, ls="--")
+        ax.set_title(f"{r['variant']}\n"
+                     f"ρ={r['spearman_rho_global']:.3f}", fontsize=9)
+        ax.set_xlabel("Epoch", fontsize=8)
+        ax.set_ylabel("Pairwise loss", fontsize=8)
+        ax.legend(fontsize=7)
+        ax.tick_params(labelsize=7)
+    fig.suptitle("NAS-Bench-101 — MLP Training Curves", fontsize=12, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "training_curves.png", dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved training_curves.png", flush=True)
+
+    # ── Plot 2: Ablation bar chart ────────────────────────────────────────────
+    variants  = [r["variant"] for r in all_results]
+    rho_g     = [r["spearman_rho_global"] for r in all_results]
+    rho_c     = [r["spearman_rho_competitive"] for r in all_results]
+    top5      = [r["top5pct_precision"] for r in all_results]
+    top10     = [r["top10pct_precision"] for r in all_results]
+
+    x    = np.arange(len(variants))
+    w    = 0.20
+    fig2, ax2 = plt.subplots(figsize=(10, 5))
+    ax2.bar(x - 1.5*w, rho_g,  w, label="Spearman ρ (global)",      color="#3498db", alpha=0.85)
+    ax2.bar(x - 0.5*w, rho_c,  w, label="Spearman ρ (competitive)",  color="#2ecc71", alpha=0.85)
+    ax2.bar(x + 0.5*w, top5,   w, label="Top-5% precision",          color="#e67e22", alpha=0.85)
+    ax2.bar(x + 1.5*w, top10,  w, label="Top-10% precision",         color="#9b59b6", alpha=0.85)
+    ax2.set_xticks(x)
+    ax2.set_xticklabels([v.replace("_", "\n") for v in variants], fontsize=9)
+    ax2.set_ylabel("Score", fontsize=10)
+    ax2.set_title("NAS-Bench-101 — Ablation Comparison", fontsize=12, fontweight="bold")
+    ax2.legend(fontsize=8)
+    ax2.set_ylim(0, max(max(rho_g), max(top10)) * 1.25)
+    ax2.axhline(0, color="k", lw=0.5)
+    fig2.tight_layout()
+    fig2.savefig(OUT_DIR / "ablation_comparison.png", dpi=120, bbox_inches="tight")
+    plt.close(fig2)
+    print(f"Saved ablation_comparison.png", flush=True)
+    print(f"\nAll outputs in {OUT_DIR}", flush=True)
 
 
 if __name__ == "__main__":

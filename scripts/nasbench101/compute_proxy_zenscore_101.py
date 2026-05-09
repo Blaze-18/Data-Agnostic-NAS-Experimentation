@@ -31,7 +31,7 @@ from proxy_utils_101 import build_nasbench101_model, get_device
 # Paths and settings
 # ---------------------------------------------------------------------------
 
-ROOT_DIR         = Path("F:/Thesis/Experimentation")
+ROOT_DIR         = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
 AUDIT_DIR        = ROOT_DIR / "results/nasbench101/audit"
 OUT_DIR          = ROOT_DIR / "results/nasbench101/raw_proxy_scores"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -45,12 +45,16 @@ INPUT_SIZE       = (4, 3, 32, 32)   # ZenScore: batch=4 per sample
 C_BASE           = 16
 LOG_EVERY        = 5000
 
+# Fixed denominator: stem(1) + downsamples(2) + 9 cells × 5 nodes = 48
+# Multiplied by NUM_SAMPLES=4 since all_scores accumulates traces across samples.
+MAX_CONV_LAYERS  = 48
+
 
 # ---------------------------------------------------------------------------
 # ZenScore
 # ---------------------------------------------------------------------------
 
-def zenscore(model: nn.Module, num_samples: int = NUM_SAMPLES) -> float:
+def zenscore(model: nn.Module, device: torch.device, num_samples: int = NUM_SAMPLES) -> float:
     """
     Compute ZenScore: mean covariance trace over all Conv2d layers and samples.
     Returns 0.0 on any error.
@@ -78,7 +82,7 @@ def zenscore(model: nn.Module, num_samples: int = NUM_SAMPLES) -> float:
                 hooks = [m.register_forward_hook(make_hook(i))
                          for i, m in enumerate(conv_modules)]
 
-                x = torch.randn(INPUT_SIZE)
+                x = torch.randn(INPUT_SIZE).to(device)
                 model(x)
 
                 for h in hooks:
@@ -95,7 +99,10 @@ def zenscore(model: nn.Module, num_samples: int = NUM_SAMPLES) -> float:
         if not all_scores:
             return 0.0
 
-        return float(np.mean(all_scores))
+        # Divide by (MAX_CONV_LAYERS × num_samples) — fixed denominator.
+        # all_scores accumulates one trace per (conv_layer × sample), so the
+        # total expected count is MAX_CONV_LAYERS * num_samples.
+        return float(sum(all_scores) / (MAX_CONV_LAYERS * num_samples))
 
     except Exception:
         return 0.0
@@ -106,6 +113,8 @@ def zenscore(model: nn.Module, num_samples: int = NUM_SAMPLES) -> float:
 # ---------------------------------------------------------------------------
 
 def main():
+    device = get_device()
+    print(f"Using device: {device}", flush=True)
     print("Loading audit data ...", flush=True)
     arch_hashes = np.load(AUDIT_DIR / "arch_hashes.npy", allow_pickle=True)
     with open(AUDIT_DIR / "arch_specs.pkl", "rb") as f:
@@ -139,8 +148,8 @@ def main():
         h    = str(arch_hashes[idx])
         spec = arch_specs[h]
 
-        model       = build_nasbench101_model(spec["adjacency"], spec["ops"], C=C_BASE)
-        scores[idx] = zenscore(model)
+        model       = build_nasbench101_model(spec["adjacency"], spec["ops"], C=C_BASE).to(device)
+        scores[idx] = zenscore(model, device)
         del model
 
         if (idx + 1) % LOG_EVERY == 0:

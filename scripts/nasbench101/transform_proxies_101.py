@@ -20,7 +20,7 @@ import json
 from pathlib import Path
 from scipy.stats import spearmanr
 
-ROOT_DIR   = Path("F:/Thesis/Experimentation")
+ROOT_DIR   = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
 AUDIT_DIR  = ROOT_DIR / "results/nasbench101/audit"
 RAW_DIR    = ROOT_DIR / "results/nasbench101/raw_proxy_scores"
 OUT_DIR    = ROOT_DIR / "results/nasbench101/transformed_proxy"
@@ -30,11 +30,33 @@ EPS = 1e-8
 
 
 def log_transform(x: np.ndarray, negate: bool = False, eps: float = EPS) -> np.ndarray:
-    """Apply optional negation then log(x + eps). Clamps minimum to eps before log."""
-    if negate:
-        x = -x
+    """
+    Apply log(x + eps), then optionally negate the result.
+    Handles Inf/NaN by replacing with max finite value before transform.
+    
+    If negate=True: returns -log(x + eps)
+    If negate=False: returns log(x + eps)
+    """
+    x = x.copy()
+    
+    # Handle Inf/NaN values
+    finite_mask = np.isfinite(x)
+    if not finite_mask.all():
+        max_finite = x[finite_mask].max() if finite_mask.any() else 1e10
+        x[~finite_mask] = max_finite
+        print(f"    Replaced {(~finite_mask).sum()} Inf/NaN values with {max_finite:.4e}")
+    
+    # Clamp to minimum epsilon
     x = np.where(x < eps, eps, x)
-    return np.log(x)
+    
+    # Take log
+    result = np.log(x)
+    
+    # Negate AFTER log if needed (to flip correlation direction)
+    if negate:
+        result = -result
+    
+    return result
 
 
 def main():
@@ -101,6 +123,41 @@ def main():
     with open(OUT_DIR / "transform_summary.json", "w") as f:
         json.dump(summary, f, indent=2)
     print(f"\nSaved transform_summary.json to {OUT_DIR}", flush=True)
+    
+    # ------------------------------------------------------------------
+    # Post-transformation validation
+    # ------------------------------------------------------------------
+    print("\n" + "="*60)
+    print("POST-TRANSFORMATION VALIDATION")
+    print("="*60)
+    
+    all_valid = True
+    
+    for proxy_name in ["param_count", "synflow", "naswot", "zenscore"]:
+        t_data = np.load(OUT_DIR / f"{proxy_name}_log.npy")
+        
+        has_nan = np.isnan(t_data).sum()
+        has_inf = np.isinf(t_data).sum()
+        
+        print(f"\n{proxy_name.upper()}:")
+        print(f"  Shape: {t_data.shape}")
+        print(f"  Dtype: {t_data.dtype}")
+        print(f"  Range: [{t_data.min():.4f}, {t_data.max():.4f}]")
+        print(f"  Mean: {t_data.mean():.4f}, Std: {t_data.std():.4f}")
+        print(f"  NaN: {has_nan}, Inf: {has_inf}")
+        
+        if has_nan > 0 or has_inf > 0:
+            print(f"  ⚠️  WARNING: Contains {has_nan} NaN and {has_inf} Inf values!")
+            all_valid = False
+        else:
+            print(f"  ✅ Clean (no NaN/Inf)")
+    
+    print("\n" + "="*60)
+    if all_valid:
+        print("✅ ALL TRANSFORMATIONS VALID - Ready for Step 3")
+    else:
+        print("⚠️  VALIDATION WARNINGS - Check output above")
+    print("="*60 + "\n")
 
 
 if __name__ == "__main__":

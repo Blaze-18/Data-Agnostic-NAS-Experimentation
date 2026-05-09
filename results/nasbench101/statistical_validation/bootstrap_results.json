@@ -1,0 +1,12 @@
+{
+  "n_test": 42363,
+  "n_bootstrap": 1000,
+  "point_rho_pca_raw": 0.6274738804685407,
+  "point_rho_full_pipeline": 0.6493737186191705,
+  "point_delta": 0.02189983815062979,
+  "bootstrap_mean_delta": 0.021891265851783557,
+  "ci_95_lower": 0.019609027046525458,
+  "ci_95_upper": 0.02413999687308473,
+  "ci_excludes_zero": true,
+  "p_delta_positive": 1.0
+}

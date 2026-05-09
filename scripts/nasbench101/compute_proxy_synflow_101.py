@@ -34,7 +34,7 @@ from proxy_utils_101 import build_nasbench101_model, get_device
 # Paths and settings
 # ---------------------------------------------------------------------------
 
-ROOT_DIR         = Path("F:/Thesis/Experimentation")
+ROOT_DIR         = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
 AUDIT_DIR        = ROOT_DIR / "results/nasbench101/audit"
 OUT_DIR          = ROOT_DIR / "results/nasbench101/raw_proxy_scores"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -52,13 +52,13 @@ LOG_EVERY        = 5000
 # SynFlow score
 # ---------------------------------------------------------------------------
 
-def synflow_score(model: nn.Module) -> float:
+def synflow_score(model: nn.Module, device: torch.device) -> float:
     """Compute SynFlow score for a model. Returns 0.0 on any error."""
     try:
         model.eval()
         model.zero_grad()
 
-        x = torch.ones(INPUT_SIZE)
+        x = torch.ones(INPUT_SIZE).to(device)
 
         # Linearize: store signs, set all weights to |w|
         signs = {}
@@ -95,6 +95,8 @@ def synflow_score(model: nn.Module) -> float:
 # ---------------------------------------------------------------------------
 
 def main():
+    device = get_device()
+    print(f"Using device: {device}", flush=True)
     print("Loading audit data ...", flush=True)
     arch_hashes = np.load(AUDIT_DIR / "arch_hashes.npy", allow_pickle=True)
     with open(AUDIT_DIR / "arch_specs.pkl", "rb") as f:
@@ -129,8 +131,8 @@ def main():
         h = str(arch_hashes[idx])
         spec = arch_specs[h]
 
-        model = build_nasbench101_model(spec["adjacency"], spec["ops"], C=C_BASE)
-        scores[idx] = synflow_score(model)
+        model = build_nasbench101_model(spec["adjacency"], spec["ops"], C=C_BASE).to(device)
+        scores[idx] = synflow_score(model, device)
         del model
 
         # Log

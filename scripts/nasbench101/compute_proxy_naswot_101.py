@@ -31,7 +31,7 @@ from proxy_utils_101 import build_nasbench101_model, get_device
 # Paths and settings
 # ---------------------------------------------------------------------------
 
-ROOT_DIR         = Path("F:/Thesis/Experimentation")
+ROOT_DIR         = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
 AUDIT_DIR        = ROOT_DIR / "results/nasbench101/audit"
 OUT_DIR          = ROOT_DIR / "results/nasbench101/raw_proxy_scores"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,12 +44,17 @@ INPUT_SIZE       = (8, 3, 32, 32)   # NASWOT: batch=8, random
 C_BASE           = 16
 LOG_EVERY        = 5000
 
+# Fixed denominator: stem(1) + downsamples(2) + 9 cells × 5 nodes = 48
+# Using a fixed denominator makes scores comparable across architectures
+# with different numbers of Conv2d ops (variable due to maxpool3x3).
+MAX_CONV_LAYERS  = 48
+
 
 # ---------------------------------------------------------------------------
 # NASWOT score
 # ---------------------------------------------------------------------------
 
-def naswot_score(model: nn.Module) -> float:
+def naswot_score(model: nn.Module, device: torch.device) -> float:
     """
     Compute NASWOT score: mean covariance trace over all Conv2d layers.
     Returns 0.0 on any error.
@@ -76,7 +81,7 @@ def naswot_score(model: nn.Module) -> float:
                  for i, m in enumerate(conv_modules)]
 
         with torch.no_grad():
-            x = torch.randn(INPUT_SIZE)
+            x = torch.randn(INPUT_SIZE).to(device)
             model(x)
 
         for h in hooks:
@@ -94,7 +99,10 @@ def naswot_score(model: nn.Module) -> float:
         if not layer_scores:
             return 0.0
 
-        return float(np.mean(layer_scores))
+        # Divide by MAX_CONV_LAYERS (fixed) NOT len(layer_scores) (variable).
+        # This prevents architectures with fewer hooked Conv2d layers (e.g.
+        # maxpool-heavy DAGs) from appearing to have higher activation diversity.
+        return float(sum(layer_scores) / MAX_CONV_LAYERS)
 
     except Exception:
         return 0.0
@@ -105,6 +113,8 @@ def naswot_score(model: nn.Module) -> float:
 # ---------------------------------------------------------------------------
 
 def main():
+    device = get_device()
+    print(f"Using device: {device}", flush=True)
     print("Loading audit data ...", flush=True)
     arch_hashes = np.load(AUDIT_DIR / "arch_hashes.npy", allow_pickle=True)
     with open(AUDIT_DIR / "arch_specs.pkl", "rb") as f:
@@ -138,8 +148,8 @@ def main():
         h    = str(arch_hashes[idx])
         spec = arch_specs[h]
 
-        model      = build_nasbench101_model(spec["adjacency"], spec["ops"], C=C_BASE)
-        scores[idx] = naswot_score(model)
+        model      = build_nasbench101_model(spec["adjacency"], spec["ops"], C=C_BASE).to(device)
+        scores[idx] = naswot_score(model, device)
         del model
 
         if (idx + 1) % LOG_EVERY == 0:

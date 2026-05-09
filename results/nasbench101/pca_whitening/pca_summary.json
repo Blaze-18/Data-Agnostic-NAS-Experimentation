@@ -1,0 +1,20 @@
+{
+  "n_architectures": 423624,
+  "n_input_features": 4,
+  "input_feature_names": [
+    "log_param_count",
+    "synflow_residual",
+    "naswot_residual",
+    "zenscore_residual"
+  ],
+  "n_pca_components": 3,
+  "variance_explained_pct": 99.8067190265825,
+  "explained_ratios": [
+    0.6021209355145294,
+    0.2500000000000999,
+    0.14594625475119571
+  ],
+  "max_col_mean": 2.9026153355720415e-16,
+  "max_cov_off_diag_err": 4.218847493575595e-15,
+  "validation_passed": true
+}
