@@ -23,6 +23,7 @@ Output: results/nasbench101/pca_whitening/
 
 import numpy as np
 import json
+import joblib
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -31,7 +32,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-ROOT_DIR   = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR   = Path(__file__).resolve().parents[2]
 TRANS_DIR  = ROOT_DIR / "results/nasbench101/transformed_proxy"
 DEBIAS_DIR = ROOT_DIR / "results/nasbench101/debiased_proxy"
 OUT_DIR    = ROOT_DIR / "results/nasbench101/pca_whitening"
@@ -106,6 +107,12 @@ def main():
     # Save
     np.save(OUT_DIR / "whitened_features.npy", Z.astype(np.float32))
     print(f"Saved whitened_features.npy  shape={Z.shape}", flush=True)
+
+    # Save fitted scaler and PCA model so they can be applied to new architectures
+    joblib.dump(scaler, OUT_DIR / "scaler.pkl")
+    joblib.dump(pca,    OUT_DIR / "pca_model.pkl")
+    np.save(OUT_DIR / "arch_ids.npy", np.arange(Z.shape[0], dtype=np.int32))
+    print("Saved scaler.pkl, pca_model.pkl, arch_ids.npy", flush=True)
 
     summary = {
         "n_architectures":       int(Z.shape[0]),

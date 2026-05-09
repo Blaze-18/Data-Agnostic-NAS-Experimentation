@@ -38,7 +38,7 @@ from scipy.stats import spearmanr
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-ROOT_DIR  = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR  = Path(__file__).resolve().parents[3]
 PRED_DIR  = ROOT_DIR / "results/nasbench101/statistical_validation/predictions"
 MLP_DIR   = ROOT_DIR / "results/nasbench101/surrogate_mlp"
 OUT_DIR   = ROOT_DIR / "results/nasbench101/statistical_validation"

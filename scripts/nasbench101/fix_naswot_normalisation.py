@@ -43,7 +43,7 @@ import pickle
 from pathlib import Path
 from scipy.stats import spearmanr
 
-ROOT_DIR    = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR    = Path(__file__).resolve().parents[2]
 AUDIT_DIR   = ROOT_DIR / "results/nasbench101/audit"
 RAW_DIR     = ROOT_DIR / "results/nasbench101/raw_proxy_scores"
 

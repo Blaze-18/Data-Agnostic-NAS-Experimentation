@@ -40,7 +40,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-ROOT_DIR    = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR    = Path(__file__).resolve().parents[2]
 AUDIT_DIR   = ROOT_DIR / "results/nasbench101/audit"
 TRANS_DIR   = ROOT_DIR / "results/nasbench101/transformed_proxy"
 VALID_DIR   = ROOT_DIR / "results/nasbench101/proxy_validation"
@@ -180,9 +180,11 @@ def train_and_eval(X_all: np.ndarray, gt_all: np.ndarray,
                   f"val_loss={best_val_loss:.4f}", flush=True)
             break
 
-    # Restore best weights
+    # Restore best weights and save model checkpoint
     model.load_state_dict(best_state)
     model.eval()
+    torch.save(best_state, OUT_DIR / f"{variant_name}.pt")
+    print(f"    [{variant_name}] Saved model weights -> {variant_name}.pt", flush=True)
 
     with torch.no_grad():
         test_pred = model(X_te).cpu().numpy()

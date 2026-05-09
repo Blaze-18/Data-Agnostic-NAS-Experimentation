@@ -23,7 +23,7 @@ except ImportError:
     HAS_MATPLOTLIB = False
     print("Warning: matplotlib not available, skipping plots")
 
-ROOT_DIR  = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR  = Path(__file__).resolve().parents[2]
 TRANS_DIR = ROOT_DIR / "results/nasbench101/transformed_proxy"
 OUT_DIR   = ROOT_DIR / "results/nasbench101/proxy_distribution"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

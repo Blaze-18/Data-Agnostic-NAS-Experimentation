@@ -31,7 +31,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-ROOT_DIR   = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR   = Path(__file__).resolve().parents[2]
 AUDIT_DIR  = ROOT_DIR / "results/nasbench101/audit"
 TRANS_DIR  = ROOT_DIR / "results/nasbench101/transformed_proxy"
 OUT_DIR    = ROOT_DIR / "results/nasbench101/debiased_proxy"
@@ -133,6 +133,14 @@ def main():
 
     with open(OUT_DIR / "debiasing_summary.json", "w") as f:
         json.dump(debiasing_summary, f, indent=2)
+
+    # Save GT rank-residuals (GT after partialling out log_param_count)
+    # Useful for external analysis and reproducing partial-rank scatter plots
+    r_gt  = gt.argsort().argsort().astype(np.float64)
+    r_cov = log_params.argsort().argsort().astype(np.float64)
+    gt_res = ols_residuals(r_gt, r_cov)
+    np.save(OUT_DIR / "gt_residuals.npy", gt_res.astype(np.float32))
+    print("Saved gt_residuals.npy", flush=True)
 
     print(f"\nSaved outputs to {OUT_DIR}", flush=True)
 

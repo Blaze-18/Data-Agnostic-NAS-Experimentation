@@ -8,7 +8,7 @@ import os
 import numpy as np
 from pathlib import Path
 
-ROOT_DIR = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR = Path(__file__).resolve().parents[2]
 AUDIT_DIR = ROOT_DIR / "results/nasbench101/audit"
 OUT_DIR   = ROOT_DIR / "results/nasbench101/raw_proxy_scores"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

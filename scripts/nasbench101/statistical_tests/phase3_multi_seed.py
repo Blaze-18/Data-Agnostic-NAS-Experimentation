@@ -36,7 +36,7 @@ from sklearn.decomposition import PCA
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-ROOT_DIR  = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR  = Path(__file__).resolve().parents[3]
 AUDIT_DIR = ROOT_DIR / "results/nasbench101/audit"
 TRANS_DIR = ROOT_DIR / "results/nasbench101/transformed_proxy"
 PCA_DIR   = ROOT_DIR / "results/nasbench101/pca_whitening"
@@ -55,7 +55,7 @@ MAX_EPOCHS = 500
 BATCH_SIZE = 2048
 COMP_THRESH = 50.0
 
-ALL_SEEDS  = [0, 1, 2, 3, 42]
+ALL_SEEDS  = [0, 1, 2, 3, 4, 5, 6, 7, 42]
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +85,19 @@ def ranknet_loss(pred, target, n_pairs=2048):
 # ---------------------------------------------------------------------------
 # Feature builders  (exact copies — PCA must be re-fit per seed because
 # train/val split changes; the raw proxies are fixed)
+#
+# *** Intentional asymmetry ***
+# pca_raw:       PCA is re-fit with random_state=seed on each run, so the
+#                embedding itself varies slightly across seeds (different
+#                random tie-breaking in the SVD).
+# full_pipeline: always loads the fixed whitened_features.npy produced by
+#                Step 6 (PCA fitted once with random_state=42). Seed
+#                variation for this variant therefore comes only from the
+#                train/val/test split permutation and weight initialisation,
+#                NOT from PCA fitting.
+# This asymmetry is defensible: the full_pipeline embedding is a fixed,
+# pre-computed artefact; we test how stable the downstream MLP is to
+# different splits and initialisations given that fixed input.
 # ---------------------------------------------------------------------------
 def build_pca_raw(seed):
     cols = []

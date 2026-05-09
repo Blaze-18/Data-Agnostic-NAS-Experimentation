@@ -31,7 +31,7 @@ from proxy_utils_101 import build_nasbench101_model, get_device
 # Paths and settings
 # ---------------------------------------------------------------------------
 
-ROOT_DIR         = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR         = Path(__file__).resolve().parents[2]
 AUDIT_DIR        = ROOT_DIR / "results/nasbench101/audit"
 OUT_DIR          = ROOT_DIR / "results/nasbench101/raw_proxy_scores"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

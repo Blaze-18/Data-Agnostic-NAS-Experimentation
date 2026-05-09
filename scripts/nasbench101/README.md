@@ -152,6 +152,16 @@ The 390-second load happens exactly once.
             `param_count.npy`, `synflow.npy`, `naswot.npy`, `zenscore.npy`
             Each shape (423624,) with values in original score space
 
+**Post-compute fix (applied May 9, 2026)**:
+`fix_naswot_normalisation.py` corrects a normalisation bug in `compute_proxy_naswot_101.py`
+where NASWOT traces were divided by the number of Conv2d layers *in that architecture*
+(variable, 1–48) instead of the global maximum (`MAX_CONV = 48`). This inflated scores
+for shallow architectures. The fix divides all traces by the fixed constant 48 and
+re-saves `naswot.npy`. The original buggy scores are backed up as `naswot_original_mean.npy`.
+If re-running the pipeline from scratch, the bug is already fixed in `compute_proxy_naswot_101.py`
+(divide by `MAX_CONV = 48` is now hardcoded) — `fix_naswot_normalisation.py` only needs
+to be run if restoring from an existing checkpoint that used the old mean normalisation.
+
 **proxy_utils_101.py must implement**:
 ```
 NASBench101Net(adjacency, operations) -> nn.Module

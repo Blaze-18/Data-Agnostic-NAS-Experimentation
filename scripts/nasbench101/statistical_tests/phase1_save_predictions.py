@@ -26,7 +26,7 @@ from sklearn.decomposition import PCA
 # ---------------------------------------------------------------------------
 # Paths  (must exactly match train_mlp_101.py)
 # ---------------------------------------------------------------------------
-ROOT_DIR  = Path("/home/anan/NAS/Experimentation/Data-Agnostic-NAS-Experimentation")
+ROOT_DIR  = Path(__file__).resolve().parents[3]
 AUDIT_DIR = ROOT_DIR / "results/nasbench101/audit"
 TRANS_DIR = ROOT_DIR / "results/nasbench101/transformed_proxy"
 VALID_DIR = ROOT_DIR / "results/nasbench101/proxy_validation"
