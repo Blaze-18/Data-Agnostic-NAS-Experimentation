@@ -1,0 +1,42 @@
+[
+  {
+    "variant": "size_only",
+    "n_features": 1,
+    "spearman_rho_global": 0.5558694757070403,
+    "spearman_rho_competitive": 0.5580061290269396,
+    "kendall_tau_global": 0.39153716462167615,
+    "top5pct_precision": 0.20066100094428707,
+    "top10pct_precision": 0.2790368271954674,
+    "top1pct_precision": 0.12293144208037825
+  },
+  {
+    "variant": "best_raw",
+    "n_features": 1,
+    "spearman_rho_global": 0.42976525453183106,
+    "spearman_rho_competitive": 0.4283100374532511,
+    "kendall_tau_global": 0.292831105267007,
+    "top5pct_precision": 0.141643059490085,
+    "top10pct_precision": 0.2096317280453258,
+    "top1pct_precision": 0.05200945626477541
+  },
+  {
+    "variant": "pca_raw",
+    "n_features": 3,
+    "spearman_rho_global": 0.6274738804685407,
+    "spearman_rho_competitive": 0.6286794909677927,
+    "kendall_tau_global": 0.451293640790719,
+    "top5pct_precision": 0.3876298394711992,
+    "top10pct_precision": 0.4516052880075543,
+    "top1pct_precision": 0.19148936170212766
+  },
+  {
+    "variant": "full_pipeline",
+    "n_features": 3,
+    "spearman_rho_global": 0.6493737186191705,
+    "spearman_rho_competitive": 0.6505444235102956,
+    "kendall_tau_global": 0.4678437584646774,
+    "top5pct_precision": 0.37488196411709157,
+    "top10pct_precision": 0.4513692162417375,
+    "top1pct_precision": 0.19148936170212766
+  }
+]

@@ -1,0 +1,66 @@
+{
+  "param_count": {
+    "global": {
+      "spearman_rho": 0.4349868320155258,
+      "kendall_tau": 0.3066226823140908,
+      "top1pct_prec": 0.09537299338999056,
+      "top5pct_prec": 0.200982012180728,
+      "top10pct_prec": 0.2705018648789009
+    },
+    "competitive_gt50": {
+      "n": 421445,
+      "spearman_rho": 0.4356970034140674,
+      "kendall_tau": 0.3071707057253714,
+      "top5pct_prec": 0.20149962034927865,
+      "top10pct_prec": 0.2700503037205771
+    }
+  },
+  "synflow": {
+    "global": {
+      "spearman_rho": 0.42059282023613714,
+      "kendall_tau": 0.28669642577697485,
+      "top1pct_prec": 0.029745042492917848,
+      "top5pct_prec": 0.11203437042632548,
+      "top10pct_prec": 0.21653840706293376
+    },
+    "competitive_gt50": {
+      "n": 421445,
+      "spearman_rho": 0.41882758029128503,
+      "kendall_tau": 0.28576271788807206,
+      "top5pct_prec": 0.1114749430523918,
+      "top10pct_prec": 0.21438401670463175
+    }
+  },
+  "naswot": {
+    "global": {
+      "spearman_rho": 0.19820113515738627,
+      "kendall_tau": 0.1359439071203737,
+      "top1pct_prec": 0.0025967894239848914,
+      "top5pct_prec": 0.03125442613663189,
+      "top10pct_prec": 0.08972664180161466
+    },
+    "competitive_gt50": {
+      "n": 421445,
+      "spearman_rho": 0.19525705380725672,
+      "kendall_tau": 0.13417080279802102,
+      "top5pct_prec": 0.031083902809415337,
+      "top10pct_prec": 0.08936028853454822
+    }
+  },
+  "zenscore": {
+    "global": {
+      "spearman_rho": 0.19791288811794086,
+      "kendall_tau": 0.13575332247748645,
+      "top1pct_prec": 0.0011803588290840415,
+      "top5pct_prec": 0.027760728955195695,
+      "top10pct_prec": 0.08526509607667249
+    },
+    "competitive_gt50": {
+      "n": 421445,
+      "spearman_rho": 0.1949318146340144,
+      "kendall_tau": 0.13395795218543285,
+      "top5pct_prec": 0.02780941533788914,
+      "top10pct_prec": 0.08499430523917996
+    }
+  }
+}

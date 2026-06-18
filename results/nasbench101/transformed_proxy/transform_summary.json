@@ -1,0 +1,25 @@
+{
+  "param_count": {
+    "raw_rho": 0.4349868320155258,
+    "negate": false,
+    "transform": "log"
+  },
+  "synflow": {
+    "raw_rho": NaN,
+    "negate": false,
+    "transform": "log",
+    "transformed_rho": 0.42059282075017174
+  },
+  "naswot": {
+    "raw_rho": -0.19820113497020572,
+    "negate": true,
+    "transform": "negate+log",
+    "transformed_rho": 0.19820113497020572
+  },
+  "zenscore": {
+    "raw_rho": -0.19791288772463084,
+    "negate": true,
+    "transform": "negate+log",
+    "transformed_rho": 0.19791288772463084
+  }
+}

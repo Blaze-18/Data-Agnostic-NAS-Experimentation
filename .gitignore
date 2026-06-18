@@ -33,10 +33,9 @@ pip-selfcheck.json
 
 # ===== Project data, caches and outputs =====
 # Large datasets, preprocessed outputs, and model checkpoints
-/data/
-/results/
+
 /tmp/
-/models/
+
 /pip_cache/
 
 # Processed files and numpy/hdf5 checkpoints
@@ -45,6 +44,30 @@ pip-selfcheck.json
 *.h5
 *.hdf5
 *.npy
+
+# Pickle / serialised data
+*.pkl
+*.pickle
+*.pbz2
+*.bz2
+
+# TensorFlow records and other large dataset formats
+*.tfrecord
+*.tfrecords
+*.bin
+*.npz
+
+# Large data directories (raw datasets, benchmark files)
+/data/nasbench101/
+/data/nasbench201/raw/
+/data/nasbench201/chunks_clean/
+/data/nats_bench_sss/
+
+# Trained models
+/models/
+
+# NAS-Bench root-level dataset file
+NAS-Bench-*.pth
 
 # Logs and runtime outputs
 *.log

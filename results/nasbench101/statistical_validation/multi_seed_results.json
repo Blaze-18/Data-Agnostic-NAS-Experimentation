@@ -1,0 +1,115 @@
+{
+  "seeds_run": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    42
+  ],
+  "per_seed": {
+    "0": {
+      "pca_raw": {
+        "rho_global": 0.6476,
+        "rho_competitive": 0.6495
+      },
+      "full_pipeline": {
+        "rho_global": 0.6178,
+        "rho_competitive": 0.6196
+      }
+    },
+    "1": {
+      "pca_raw": {
+        "rho_global": 0.6159,
+        "rho_competitive": 0.6169
+      },
+      "full_pipeline": {
+        "rho_global": 0.6032,
+        "rho_competitive": 0.6039
+      }
+    },
+    "2": {
+      "pca_raw": {
+        "rho_global": 0.611,
+        "rho_competitive": 0.612
+      },
+      "full_pipeline": {
+        "rho_global": 0.609,
+        "rho_competitive": 0.6098
+      }
+    },
+    "3": {
+      "pca_raw": {
+        "rho_global": 0.6056,
+        "rho_competitive": 0.6069
+      },
+      "full_pipeline": {
+        "rho_global": 0.6073,
+        "rho_competitive": 0.6084
+      }
+    },
+    "4": {
+      "pca_raw": {
+        "rho_global": 0.6342504623494553,
+        "rho_competitive": 0.6351969390051908
+      },
+      "full_pipeline": {
+        "rho_global": 0.6078452980754477,
+        "rho_competitive": 0.6092652750825287
+      }
+    },
+    "5": {
+      "pca_raw": {
+        "rho_global": 0.5897575263545856,
+        "rho_competitive": 0.5910981582298029
+      },
+      "full_pipeline": {
+        "rho_global": 0.5828321931265834,
+        "rho_competitive": 0.5843316893356275
+      }
+    },
+    "6": {
+      "pca_raw": {
+        "rho_global": 0.5977695973782254,
+        "rho_competitive": 0.5994179108921786
+      },
+      "full_pipeline": {
+        "rho_global": 0.6145329019236578,
+        "rho_competitive": 0.6160834383026413
+      }
+    },
+    "7": {
+      "pca_raw": {
+        "rho_global": 0.5945806088084477,
+        "rho_competitive": 0.5957653959282655
+      },
+      "full_pipeline": {
+        "rho_global": 0.5906710706713432,
+        "rho_competitive": 0.5921536808565374
+      }
+    },
+    "42": {
+      "pca_raw": {
+        "rho_global": 0.6274738804685407,
+        "rho_competitive": 0.6286794909677927
+      },
+      "full_pipeline": {
+        "rho_global": 0.6493737186191705,
+        "rho_competitive": 0.6505444235102956
+      }
+    }
+  },
+  "mean_rho_pca_raw": 0.6137702305954728,
+  "std_rho_pca_raw": 0.018353073573649042,
+  "mean_rho_full_pipeline": 0.6091727980462447,
+  "std_rho_full_pipeline": 0.017626963341513625,
+  "mean_gap": -0.004597432549228003,
+  "std_gap": 0.0162859218174814,
+  "min_gap": -0.029799999999999938,
+  "max_gap": 0.02189983815062979,
+  "gap_always_positive": false,
+  "n_seeds_gap_positive": 3
+}

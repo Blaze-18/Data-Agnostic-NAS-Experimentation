@@ -1,0 +1,151 @@
+{
+  "check1_shape_dtype": "PASS",
+  "check2_nan_inf": "PASS",
+  "check3_zeros": "PASS",
+  "check4_param_xval": {
+    "status": "PASS",
+    "n_tested": 100,
+    "n_mismatch": 0
+  },
+  "check5_monotonicity": {
+    "status": "PASS",
+    "detail": {
+      "param_count": {
+        "v_small": 11714.0,
+        "v_large": 713674.0,
+        "ratio": 60.92487621649308,
+        "ok": true
+      },
+      "naswot": {
+        "v_small": 0.00017053631443724788,
+        "v_large": 0.003286019961127419,
+        "ratio": 19.268740338214435,
+        "ok": true
+      },
+      "zenscore": {
+        "v_small": 0.0002466406610104534,
+        "v_large": 0.002022014629450165,
+        "ratio": 8.198220930669926,
+        "ok": true
+      },
+      "synflow": {
+        "v_small": 161515446688.0,
+        "v_large": 4.168881820475064e+17,
+        "ratio": 2581104.102400874,
+        "ok": true
+      }
+    }
+  },
+  "check6_spearman_rho": {
+    "status": "PASS",
+    "rhos": {
+      "param_count": 0.8720658134292794,
+      "naswot": 0.5235137828940146,
+      "zenscore": 0.556619779292518,
+      "synflow": 0.9161535658758682
+    }
+  },
+  "check7_cross_corr": {
+    "status": "PASS",
+    "matrix": {
+      "param_count_vs_param_count": 1.0,
+      "param_count_vs_naswot": 0.5795803850185619,
+      "param_count_vs_zenscore": 0.6216347032331464,
+      "param_count_vs_synflow": 0.8956962093277918,
+      "naswot_vs_param_count": 0.5795803850185619,
+      "naswot_vs_naswot": 1.0,
+      "naswot_vs_zenscore": 0.6485625131057331,
+      "naswot_vs_synflow": 0.5432405199477701,
+      "zenscore_vs_param_count": 0.6216347032331463,
+      "zenscore_vs_naswot": 0.6485625131057331,
+      "zenscore_vs_zenscore": 1.0,
+      "zenscore_vs_synflow": 0.5774428380464556,
+      "synflow_vs_param_count": 0.8956962093277917,
+      "synflow_vs_naswot": 0.5432405199477701,
+      "synflow_vs_zenscore": 0.5774428380464556,
+      "synflow_vs_synflow": 1.0
+    }
+  },
+  "check8_distributions": {
+    "status": "PASS",
+    "stats": {
+      "param_count": {
+        "min": 11714.0,
+        "max": 713674.0,
+        "mean": 268684.0,
+        "std": 110109.97832167619,
+        "median": 261642.0,
+        "iqr": 154830.0,
+        "cv": 0.40981218949277287
+      },
+      "naswot": {
+        "min": 0.00014340455572892097,
+        "max": 0.003424626482039154,
+        "mean": 0.0010622313268346222,
+        "std": 0.0004384695495340863,
+        "median": 0.00100730995557304,
+        "iqr": 0.0005739348862789333,
+        "cv": 0.4127816027048421
+      },
+      "zenscore": {
+        "min": 0.00010646470362729588,
+        "max": 0.0026615374927085136,
+        "mean": 0.000911165668204161,
+        "std": 0.00034880025447483657,
+        "median": 0.00087837070862129,
+        "iqr": 0.00047894342662122523,
+        "cv": 0.38280662523456976
+      },
+      "synflow": {
+        "min": 161515446688.0,
+        "max": 4.168881820475064e+17,
+        "mean": 1.0540197698031466e+16,
+        "std": 2.3729610936512896e+16,
+        "median": 2156598463488000.0,
+        "iqr": 8782389308280832.0,
+        "cv": 2.2513440085611243
+      }
+    }
+  },
+  "check9_decile_sep": {
+    "status": "PASS",
+    "detail": {
+      "param_count": {
+        "bot": 112116.97550650136,
+        "top": 451785.8179640719,
+        "ratio": 4.029593341446087,
+        "ok": true
+      },
+      "naswot": {
+        "bot": 0.0006742583980015091,
+        "top": 0.0014757946165306105,
+        "ratio": 2.1887671268238433,
+        "ok": true
+      },
+      "zenscore": {
+        "bot": 0.0005743597926184113,
+        "top": 0.0012597659311480306,
+        "ratio": 2.1933393446727285,
+        "ok": true
+      },
+      "synflow": {
+        "bot": 73077781004234.73,
+        "top": 5.9232020565365144e+16,
+        "ratio": 810.5339236002903,
+        "ok": true
+      }
+    }
+  },
+  "overall": "PASS",
+  "check_statuses": {
+    "check1_shape_dtype": "PASS",
+    "check2_nan_inf": "PASS",
+    "check3_zeros": "PASS",
+    "check4_param_xval": "PASS",
+    "check5_monotonicity": "PASS",
+    "check6_spearman_rho": "PASS",
+    "check7_cross_corr": "PASS",
+    "check8_distributions": "PASS",
+    "check9_decile_sep": "PASS"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "n_architectures": 32768,
+  "n_input_features": 2,
+  "feature_names": [
+    "param_count",
+    "synflow_residual"
+  ],
+  "n_retained_pcs": 2,
+  "variance_threshold": 0.99,
+  "eigenvalues": [
+    1.0000305185094818,
+    1.0000305185094749
+  ],
+  "variance_ratios": [
+    0.5000000000000018,
+    0.49999999999999833
+  ],
+  "cumulative_variance": [
+    0.5,
+    1.0
+  ],
+  "loadings": [
+    [
+      0.9252586024918512,
+      0.3793369458869338
+    ],
+    [
+      -0.3793369458869338,
+      0.9252586024918512
+    ]
+  ],
+  "scaler_mean": [
+    12.402795056357544,
+    -5.607493636095029e-15
+  ],
+  "scaler_std": [
+    0.47428062149513206,
+    0.9503565854006311
+  ],
+  "validation_passed": true,
+  "whitened_shape": [
+    32768,
+    2
+  ]
+}

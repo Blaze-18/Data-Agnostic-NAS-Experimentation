@@ -1,0 +1,38 @@
+{
+  "synflow": {
+    "partial_rho": -0.0019460063263442974,
+    "p_value": 0.807826019277569,
+    "primary_method": "partial_rank_spearman",
+    "ols_rho": 0.11545284323270245,
+    "partial_rank_rho": -0.0019460063263442974,
+    "method_agreement": false,
+    "decision": "EXCLUDE",
+    "param_count_r2": 0.09950778334232058,
+    "global_spearman_rho": 0.164,
+    "param_cross_rho": 0.23
+  },
+  "naswot": {
+    "partial_rho": 0.15414452308594725,
+    "p_value": 1.0851752367071085e-83,
+    "primary_method": "partial_rank_spearman",
+    "ols_rho": 0.30504344582390475,
+    "partial_rank_rho": 0.15414452308594725,
+    "method_agreement": false,
+    "decision": "KEEP_DOCUMENTED",
+    "param_count_r2": 0.4321437826353529,
+    "global_spearman_rho": 0.515,
+    "param_cross_rho": 0.59
+  },
+  "zenscore": {
+    "partial_rho": 0.1895179576572904,
+    "p_value": 2.7307973292848365e-126,
+    "primary_method": "partial_rank_spearman",
+    "ols_rho": 0.3377412149018171,
+    "partial_rank_rho": 0.1895179576572904,
+    "method_agreement": false,
+    "decision": "KEEP_DOCUMENTED",
+    "param_count_r2": 0.4612467091057726,
+    "global_spearman_rho": 0.554,
+    "param_cross_rho": 0.62
+  }
+}
